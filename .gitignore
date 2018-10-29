@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+*.png
+data/*
+!data/example2.dlm
+!data/example2.png
+!data/*.py
+models/
+*.ipynb
+*.hdf5
+.vscode
+/fdn_predict.py
+/model_.py
+/layers_.py
