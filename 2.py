@@ -1,4 +1,4 @@
-from util import *
+from util_ import *
 
 def m():
     args = parse_args()
@@ -6,9 +6,9 @@ def m():
     n_stages = args.n_stages
     size=100
     # img = img_as_float(imread(args.image)).astype(np.float32)
-    img = img_as_float(imread("data/example2.png")).astype(np.float32)
+    img = img_as_float(imread("data/example1.png")).astype(np.float32)
     img = resize(img, (size, size)).astype(np.float32)
-    # gt = img_as_float(imread("data/example2_.png")).astype(np.float32)
+    # gt = img_as_float(imread("data/exWample2_.png")).astype(np.float32)
     # gt = resize(gt, (size, size)).astype(np.float32)
     # gt=img + np.random.normal(0, 25/255.0, img.shape).astype(np.float32)
     # gt,img = img,gt

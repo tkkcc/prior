@@ -1,50 +1,43 @@
 from data import BSD
-from model import FDN
-# import model
+from model import ModelStack, ModelStage, FDN
 import os
-import torch as t
-from config import opt as o
-from torch.utils.data import DataLoader
+import torch
+from config import o
+from torch.utils.data import DataLoader,Subset
 from tqdm import tqdm
+import torch.nn.functional as F
+from util import show
 
-def train(**kwargs):
-    o.parse(kwargs)
-    m=FDN().to(o.device)
-    d = DataLoader(BSD(), o.batch_size, num_workers=o.num_workers)
-    mse = t.nn.MSELoss()
-    lr = o.lr
-    optimizer = t.optim.Adam(m.parameters(), lr=lr, weight_decay=o.weight_decay)
-    for epoch in range(o.max_epoch):
-        for d in tqdm(d):
-            print(d)
-            # train model
-            # input = Variable(data)
-            # target = Variable(label)
-            # if o.use_gpu:
-            #     input = input.cuda()
-            #     target = target.cuda()
-            
+
+m = ModelStage()
+def train():
+    d = DataLoader(Subset(BSD(),(0,1)), o.batch_size, num_workers=0)
+    mse = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(m.parameters(), lr=o.lr)
+    for epoch in range(1):
+        for i in tqdm(d):
+            g,y, k, s = [x.to(o.device) for x in i]
             optimizer.zero_grad()
-            out = model(input)
-            loss = criterion(score, target)
+            out = m([g, y, k, s])
+            loss = mse(out, g)
+            # show(torch.cat((out.detach()[0,0,...],g.detach()[0,0,...]),0).numpy())
+            print(epoch,loss)
             loss.backward()
             optimizer.step()
-
-            # meters update and visualize
-            loss_meter.add(loss.data[0])
-            confusion_matrix.add(score.data, target.data)
-
-            if ii % o.print_freq == o.print_freq - 1:
-                vis.plot("loss", loss_meter.value()[0])
-
-                # 进入debug模式
-                if os.path.exists(o.debug_file):
-                    import ipdb
-
-                    ipdb.set_trace()
-
-        # model.save()
+    
+def test():
+    d = DataLoader(Subset(BSD(),(0,1)), o.batch_size, num_workers=0)
+    mse = torch.nn.MSELoss()
+    for i in d:
+        g,y, k, s = [x.to(o.device) for x in i]
+        out = m([g, y, k, s])
+        loss = mse(out, g)
+        print(loss)
+        show(torch.cat((out.detach()[0,0,...],g.detach()[0,0,...]),0).numpy())
 
 if __name__ == "__main__":
+    o.device = "cpu"
+    m.to(o.device)
     train()
+    test()
     pass

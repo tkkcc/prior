@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from os import environ
 environ['SCIPY_PIL_IMAGE_VIEWER'] = 'feh'
 # for i in pathlib.Path('Levin09blurdata').iterdir():
-mat = scipy.io.loadmat('Levin09blurdata/im05_flit03.mat')
+mat = scipy.io.loadmat('data/Levin09blurdata/im05_flit03.mat')
 plt.imshow(mat['y'],cmap='gray')
 plt.show()
 print(mat)
