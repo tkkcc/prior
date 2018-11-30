@@ -29,19 +29,17 @@ class ModelStage(nn.Module):
         p = [(i - 1) // 2 for i in k]
         # top&bottom left&right
         conv_pad = (p[0], p[1])
-        convElu = lambda i, o: (
+        clb = lambda i, o: (
             nn.Conv2d(i, o, k, padding=conv_pad),
             nn.BatchNorm2d(o),
-            # nn.ELU(1),
             nn.ReLU(inplace=True),
-            # nn.LeakyReLU(inplace=True),
         )
-        c4 = (j for i in range(d - 2) for j in convElu(c, c))
+        c4 = (j for i in range(d - 2) for j in clb(c, c))
         self.cnn = nn.Sequential(
             nn.ReplicationPad2d(20),
-            *convElu(channel, c),
+            *clb(channel, c),
             *c4,
-            *convElu(c, channel),
+            *clb(c, channel),
             nn.ReplicationPad2d(-20)
         )
         self.fdn = FDN(stage)

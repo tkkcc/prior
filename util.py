@@ -106,9 +106,10 @@ def center_pad(img, h, w=None):
 
 # abs mean
 def log_mean(name, var):
+
     # return
-    if name != "loss":
-        return
+    # if name != "loss":
+    #     return
     if type(var) is torch.Tensor:
         print(name, f"{var.detach().abs().mean().item():.4f}")
     else:

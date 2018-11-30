@@ -1,20 +1,26 @@
 from data import BSD
-from model import ModelStack, ModelStage, FDN
+from model import ModelStack, ModelStage
 import os
 import torch
 from config import o
 from torch.utils.data import ConcatDataset, DataLoader, Subset
 from tqdm import tqdm
 import torch.nn.functional as F
-from util import show, crop, log_mean,psnr
+from util import show, crop, log_mean, psnr
 import matplotlib.pyplot as plt
 
-# m = ModelStage().to(o.device)
-m = ModelStack(1).to(o.device)
+
+o.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+print("use " + o.device)
+m = ModelStack(5).to(o.device)
+
+
 # m.m[0].to('cuda:1')
 def train():
     d = DataLoader(
-        ConcatDataset((BSD(), BSD('test'))), o.batch_size, num_workers=o.num_workers, shuffle=True)
+        ConcatDataset((BSD(), BSD("test"))), o.batch_size, num_workers=o.num_workers, shuffle=True
+    )
     mse = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(m.parameters(), lr=o.lr, weight_decay=o.wd, amsgrad=True)
     iter_num = len(d)
@@ -37,8 +43,8 @@ def train():
             print(losss[-1])
             # show last
             num += 1
-            if num > (o.epoch * iter_num - 5):
-            # if num % 50 ==1:
+            # if num > (o.epoch * iter_num - 5):
+            if num % 50 ==1:
                 show(
                     torch.cat(
                         (
@@ -54,7 +60,7 @@ def train():
     plt.plot([i + 1 for i in range(len(losss))], losss)
     plt.xlabel("batch")
     plt.ylabel("loss")
-    plt.title(f'{iter_num} iter x {o.epoch} epoch')
+    plt.title(f"{iter_num} iter x {o.epoch} epoch")
     plt.show()
 
 
