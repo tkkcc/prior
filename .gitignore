@@ -1,12 +1,10 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints
-/data/
+/data/BSR
 /models/
 *.ipynb
 *.hdf5
 .vscode/
 .Trash-1000/
-!/data/*.py
-!/data/kernel/
 /*.zip
