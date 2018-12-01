@@ -8,7 +8,7 @@ python3.4+ torch numpy skimage scipy matplotlib tqdm
 # download BSD500
 wget "https://github.com/tkkcc/tmp/releases/download/0.0.1/fdn1201_data.zip"
 # extract to data/ without override
-unzip -n fdn1201_data
+unzip -n fdn1201_data.zip
 ```
 
 ## structure
