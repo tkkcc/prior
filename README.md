@@ -3,10 +3,13 @@
 python3.4+ torch numpy skimage scipy matplotlib tqdm
 
 ## prepare
-```sh
-wget "https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html"
-```
 
+```sh
+# download BSD500
+wget "https://github.com/tkkcc/tmp/releases/download/0.0.1/fdn1201_data.zip"
+# extract to data/ without override
+unzip -n fdn1201_data
+```
 
 ## structure
 
@@ -21,15 +24,14 @@ model:
 - fdn2: our model using closed form method
 - fdn3: our model using sgd method
 
-
 entry:
+
 ```sh
 # train using BSD, mse loss, Adam
 python 1.py
 ```
 
-
-extra:
+## extra
 
 [fourier-deconvolution-network](https://github.com/uschmidt83/fourier-deconvolution-network)
 
