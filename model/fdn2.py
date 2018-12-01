@@ -1,10 +1,10 @@
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from scipy.fftpack import idct
+
 from util import log_mean
 
 
@@ -66,7 +66,7 @@ class ModelStage(nn.Module):
         return x_out.permute(0, 3, 1, 2)
 
 
-def psf2otf_(psf, img_shape):
+def psf2otf(psf, img_shape):
     psf_shape = psf.shape
     psf_type = psf.dtype
     psf_device = psf.device
@@ -113,7 +113,6 @@ def cm(t1, t2):
     return torch.stack([real1 * real2 - imag1 * imag2, real1 * imag2 + imag1 * real2], dim=-1)
 
 
-
 def conj(t, inplace=False):
     c = t.clone() if not inplace else t
     c[..., 1] *= -1
@@ -158,7 +157,7 @@ class FDN(nn.Module):
         mask_in = F.pad(mask_in, (padding[1], padding[1], padding[0], padding[0]))
         mask_in = mask_in.unsqueeze(0)
         k = blur_kernels.permute(1, 2, 0).unsqueeze(-1)
-        k_otf = psf2otf_(k, imagesize)[:, 0, ...]
+        k_otf = psf2otf(k, imagesize)[:, 0, ...]
         if self.stage > 1:
             Kx_fft = cm(rfft(padded_inputs[:, :, :, 0]), k_otf)
             Kx = irfft(Kx_fft)

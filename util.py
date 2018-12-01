@@ -6,7 +6,6 @@ import torch
 
 # from skimage.measure import compare_psnr
 
-
 class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
@@ -106,7 +105,6 @@ def center_pad(img, h, w=None):
 
 # abs mean
 def log_mean(name, var):
-
     # return
     # if name != "loss":
     #     return
@@ -115,15 +113,6 @@ def log_mean(name, var):
     else:
         print(name, var)
 
-
-#     const psnr = (a, b) => {
-#   if (a.length !== b.length) return
-#   let sum = 0
-#   for (let i = 0; i < a.length; ++i) {
-#     sum += (a[i] - b[i]) ** 2
-#   }
-#   return 10 * Math.log10((255 * 255 * a.length) / sum)
-# }
 def psnr(a, b):
     z = torch.tensor(a.shape[-2] * a.shape[-1], dtype=a.dtype, device=a.device)
     s = F.mse_loss(a, b) * z

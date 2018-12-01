@@ -1,23 +1,24 @@
-from data import BSD
-from model import ModelStack, ModelStage
 import os
+
+import matplotlib.pyplot as plt
 import torch
-from config import o
+import torch.nn.functional as F
 from torch.utils.data import ConcatDataset, DataLoader, Subset
 from tqdm import tqdm
-import torch.nn.functional as F
-from util import show, crop, log_mean, psnr
-import matplotlib.pyplot as plt
 
+from config import o
+from data import BSD
+from model import ModelStack, ModelStage
+from util import crop, log_mean, psnr, show
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
-
 print("use " + o.device)
-m = ModelStack(5).to(o.device)
 
+m = ModelStack(1).to(o.device)
 
 # m.m[0].to('cuda:1')
 def train():
+    # load 'train' and 'test' dataset, 400x8 total
     d = DataLoader(
         ConcatDataset((BSD(), BSD("test"))), o.batch_size, num_workers=o.num_workers, shuffle=True
     )
@@ -29,8 +30,11 @@ def train():
     loss_sum = 0
     for epoch in range(o.epoch):
         for i in tqdm(d):
+            # Bx1x250x250, Bx1x267,267, Bx1x13x13, Bx1
+            # y is lager than g because of edgetaping
             g, y, k, s = [x.to(o.device) for x in i]
             optimizer.zero_grad()
+            # x^0 = y
             out = m([y, y, k, s])
             log_mean("out", out)
             out = crop(out, k)
@@ -38,13 +42,15 @@ def train():
             # log_mean("loss", loss)
             loss.backward()
             optimizer.step()
+            # avg loss for each epoch
             loss_sum += loss.detach().item()
             losss.append(loss_sum / (1 + len(losss) - epoch * iter_num))
-            print(losss[-1])
-            # show last
+            log_mean("loss", losss[-1])
+
+            # show last 5 output
             num += 1
             # if num > (o.epoch * iter_num - 5):
-            if num % 50 ==1:
+            if num % 50 == 1:
                 show(
                     torch.cat(
                         (
@@ -65,6 +71,7 @@ def train():
 
 
 def test():
+    # use 'val', 100x8 total
     d = DataLoader(BSD("val"), o.batch_size, num_workers=0)
     mse = torch.nn.MSELoss()
     loss_sum = 0
@@ -81,5 +88,5 @@ def test():
 
 if __name__ == "__main__":
     train()
-    test()
+    # test()
     pass

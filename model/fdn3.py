@@ -4,11 +4,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from scipy.fftpack import idct
+
 from util import log_mean
 
 
 class ModelStage(nn.Module):
-    def __init__(self, stage=1, channel=1, eta=0.1, lam=1):
+    def __init__(self, stage=1, channel=1, eta=1, lam=1):
         if stage < 1:
             raise ValueError("stage<1")
         super(ModelStage, self).__init__()
@@ -35,21 +36,24 @@ class ModelStage(nn.Module):
         self.lam = lam
 
     def forward(self, inputs):
+        if self.eta > 1:
+            self.eta *= 0.98
+        log_mean("eta", self.eta)
         # Bx1xHxW, Bx1xHxW, BxHxW, Bx1
         x, y, k, s = inputs
         k = k.permute(1, 2, 0).unsqueeze(-1)
-        k_otf = psf2otf_(k, x.shape[-2:])[:, 0, ...]
+        k_otf = psf2otf(k, x.shape[-2:])[:, 0, ...]
         k_otf_conj = conj(k_otf)
         t1 = cm(cm(k_otf_conj, k_otf), rfft(x[:, 0, :, :])) - cm(k_otf_conj, rfft(y[:, 0, :, :]))
         t1 = self.lam * irfft(t1)
         t1 = t1.unsqueeze(1)
         t2 = self.cnn(x)
-        log_mean('t2',t2)
+        log_mean("t2", t2)
         out = x - self.eta * (t1 + t2)
         return out
 
 
-def psf2otf_(psf, img_shape):
+def psf2otf(psf, img_shape):
     psf_shape = psf.shape
     psf_type = psf.dtype
     psf_device = psf.device

@@ -1,11 +1,37 @@
+## dependency
 
+python3.4+ torch numpy skimage scipy matplotlib tqdm
+
+## prepare
 ```sh
+wget "https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html"
+```
+
+
+## structure
+
+data:
+
+- BSR: [BSD500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html)
+- kernel: 8 blur kernels from Sun's [deblur2013iccp](http://cs.brown.edu/~lbsun/deblur2013/deblur2013iccp.html), [deblur_iccp2013_testset_640](http://cs.brown.edu/~lbsun/deblur2013/deblur_iccp2013_testset_640.zip)
+
+model:
+
+- fdn: pytorch port of https://github.com/uschmidt83/fourier-deconvolution-network
+- fdn2: our model using closed form method
+- fdn3: our model using sgd method
+
+
+entry:
+```sh
+# train using BSD, mse loss, Adam
 python 1.py
 ```
 
-BSD500
 
-[https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html)
+extra:
+
+[fourier-deconvolution-network](https://github.com/uschmidt83/fourier-deconvolution-network)
 
 Understanding and evaluating blind deconvolution algorithms
 
