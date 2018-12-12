@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from scipy.fftpack import idct
+from util import show
 
 
 def dct_filters(filter_size=(3, 3)):
@@ -17,49 +18,19 @@ def dct_filters(filter_size=(3, 3)):
 
 
 # divide psf to 4 parts, and assign to corners of a zero tensor,
-# size as img_shape, then do fft
-# psf: heighxwidthxBatchxChannel, img_shape: [H,W]
+# size as shape, then do fft
+# psf: BxCxhxw, shape: [H,W]
 # out: BxCxHxW
-def psf2otf(psf, img_shape):
-    psf_shape = psf.shape
-    psf_type = psf.dtype
-    psf_device = psf.device
-    midH = psf_shape[0] // 2
-    midW = psf_shape[1] // 2
-    top_left = psf[:midH, :midW, :, :]
-    top_right = psf[:midH, midW:, :, :]
-    bottom_left = psf[midH:, :midW, :, :]
-    bottom_right = psf[midH:, midW:, :, :]
-    zeros_bottom = torch.zeros(
-        psf_shape[0] - midH,
-        img_shape[1] - psf_shape[1],
-        psf_shape[2],
-        psf_shape[3],
-        dtype=psf_type,
-        device=psf_device,
-    )
-    zeros_top = torch.zeros(
-        midH,
-        img_shape[1] - psf_shape[1],
-        psf_shape[2],
-        psf_shape[3],
-        dtype=psf_type,
-        device=psf_device,
-    )
-    top = torch.cat((bottom_right, zeros_bottom, bottom_left), 1)
-    bottom = torch.cat((top_right, zeros_top, top_left), 1)
-    zeros_mid = torch.zeros(
-        img_shape[0] - psf_shape[0],
-        img_shape[1],
-        psf_shape[2],
-        psf_shape[3],
-        dtype=psf_type,
-        device=psf_device,
-    )
-    pre_otf = torch.cat((top, zeros_mid, bottom), 0)
-    otf = rfft(pre_otf.permute(2, 3, 0, 1))
+def psf2otf(psf, shape):
+    h, w = psf.shape[-2:]
+    mh, mw = h // 2, w // 2
+    otf = torch.zeros(psf.shape[:-2] + shape, dtype=psf.dtype, device=psf.device)
+    otf[:, :, :mh, :mw] = psf[:, :, :mh, :mw]
+    otf[:, :, :mh, -w + mw :] = psf[:, :, :mh, mw:]
+    otf[:, :, -h + mh :, :mw] = psf[:, :, mh:, :mw]
+    otf[:, :, -h + mh :, -w + mw :] = psf[:, :, mh:, mw:]
+    otf = rfft(otf)
     return otf
-    # todo unnecessary permute
 
 
 # complex multiplication, axbxcx2,axbxcx2=>axbxcx2
@@ -116,11 +87,15 @@ class FDN(nn.Module):
 
     def forward(self, inputs, mask=None):
         # C(Channel)=1
-        # BxHxWxC,     BxHxWxC,    BxHxWxC,       Bxhxw       ,Bx1
+        # Bx1xHxW,     Bx1xHxW,    Bx1xHxW,       Bxhxw       ,Bx1
         # x^t,         CNN(x^t),   y=x^0,         k,          ,mlp(lambda)=omega(lambda)
         padded_inputs, adjustments, observations, blur_kernels, lambdas = inputs
-        imagesize = padded_inputs.shape[1:3]
-        kernelsize = blur_kernels.shape[1:3]
+        observations = observations.squeeze(1)
+        padded_inputs = padded_inputs.squeeze(1)
+        adjustments = adjustments.squeeze(1)
+        blur_kernels = blur_kernels.unsqueeze(1)
+        imagesize = padded_inputs.shape[-2:]
+        kernelsize = blur_kernels.shape[-2:]
         padding = [i // 2 for i in kernelsize]
         # internal mask for boundary adjust
         mask_int = torch.ones(
@@ -131,36 +106,32 @@ class FDN(nn.Module):
         if self.filter_weights.device != self.B.device:
             self.B = self.B.to(self.filter_weights.device)
         filters = self.B.mm(self.filter_weights)
-        filters = filters.reshape(self.filter_size[0], self.filter_size[1], 1, self.nb_filters)
-        # filter_otfs: Bx1xHxWx2
+        filters = filters.permute(1, 0).view(1, self.nb_filters, *self.filter_size)
+        # filters_otfs: 1x24xHxWx2
         filter_otfs = psf2otf(filters, imagesize)
-        # otf_term: sum(|F(f)|^2) BxHxW
+        # otf_term: sum(|F(f)|^2) 1xHxW
         otf_term = filter_otfs.pow(2).sum(-1).sum(1)
-
-        # k: hxwxBx1
-        k = blur_kernels.permute(1, 2, 0).unsqueeze(-1)
         # k_otf: BxHxWx2
-        k_otf = psf2otf(k, imagesize)[:, 0, ...]
+        k_otf = psf2otf(blur_kernels, imagesize).squeeze(1)
 
         # boundary adjust
         # dataterm_fft: F(phi) x conj(F(k))
         if self.stage > 1:
             # use y's inner and (k conv x)'s outer
-            Kx_fft = cm(rfft(padded_inputs[:, :, :, 0]), k_otf)
+            Kx_fft = cm(rfft(padded_inputs), k_otf)
             Kx = irfft(Kx_fft)
             Kx_outer = (1.0 - mask_int) * Kx
-            y_inner = mask_int * observations[:, :, :, 0]
+            y_inner = mask_int * observations
             y_adjusted = y_inner + Kx_outer
             dataterm_fft = cm(rfft(y_adjusted), conj(k_otf))
         else:
             # use edgetaping
-            observations_fft = rfft(observations[:, :, :, 0])
+            observations_fft = rfft(observations)
             dataterm_fft = cm(observations_fft, conj(k_otf))
-        # Bx1=>Bx1x1
         lambdas = lambdas.unsqueeze(-1)
 
         # numerator_fft: omega x dataterm + CNN(x^t)
-        adjustment_fft = rfft(adjustments[:, :, :, 0])
+        adjustment_fft = rfft(adjustments)
         numerator_fft = cm(r2c(lambdas), dataterm_fft) + adjustment_fft
         # KtK: |F(k)|^2 BxHxW
         KtK = k_otf.pow(2).sum(-1)
@@ -169,14 +140,14 @@ class FDN(nn.Module):
         # numerator/denominator, complex/real, BxHxWx2/BxHxWx2=>BxHxWx2
         t = torch.stack((denominator_fft,) * 2, -1)
         frac_fft = numerator_fft / t
-        # return BxHxWx1
-        return irfft(frac_fft).unsqueeze(-1)
+        return irfft(frac_fft).unsqueeze(1)
 
 
 # one stage
 # parameter: mlp, cnn, fdn
 class ModelStage(nn.Module):
     def __init__(self, stage=1, channel=1):
+        assert stage > 0
         super(ModelStage, self).__init__()
         # mlp, Bx1=>Bx1
         self.mlp = nn.Sequential(
@@ -209,36 +180,15 @@ class ModelStage(nn.Module):
 
         # fdn, filter 5x5
         self.fdn = FDN((5, 5), stage)
-
-        # zero init instead of default uniform init
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.constant_(m.weight, 0)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.constant_(m.weight, 0)
-                nn.init.constant_(m.bias, 0)
+        # use (0,1)uniform random init
 
     def forward(self, inputs):
-        # Bx1xHxW, BxHxWx1, Bx1xHxW, Bx1
+        # Bx1xHxW, BxHxWx1, BxHxW, Bx1
         x_in, y, k, s = inputs
         lam = self.mlp(s.pow(-2))
         x_adjustment = self.cnn(x_in)
-        # Bx1xHxW=>BxHxWx1 for fdn, todo unnecessary
-        x_in = x_in.permute(0, 2, 3, 1)
-        x_adjustment = x_adjustment.permute(0, 2, 3, 1)
-        y = y.permute(0, 2, 3, 1)
         x_out = self.fdn([x_in, x_adjustment, y, k, lam])
-        return x_out.permute(0, 3, 1, 2)
-        # lam = self.mlp(s.pow(-2))
-        # # Bx1xHxW
-        # x_in = x_in.permute(0, 3, 1, 2)
-        # x_adjustment = self.cnn(x_in)
-        # # to BxHxWx1 for fdn
-        # x_in = x_in.permute(0, 2, 3, 1)
-        # x_adjustment = x_adjustment.permute(0, 2, 3, 1)
-        # x_out = self.fdn([x_in, x_adjustment, y, k, lam])
-        # return x_out
+        return x_out
 
 
 # stack multi ModelStage
@@ -246,6 +196,7 @@ class ModelStack(nn.Module):
     def __init__(self, stage=1, weight=None):
         super(ModelStack, self).__init__()
         self.m = nn.ModuleList(ModelStage(i + 1) for i in range(stage))
+        self.stage=stage
 
     def forward(self, d):
         for i in self.m:

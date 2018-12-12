@@ -9,7 +9,7 @@ from tqdm import tqdm
 from config import o
 from data import BSD
 from model import ModelStack, ModelStage
-from util import crop, log_mean, psnr, show
+from util import crop, log_mean, show
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 print("use " + o.device)

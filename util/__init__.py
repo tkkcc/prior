@@ -3,8 +3,11 @@ from scipy.signal import fftconvolve
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import random
+from scipy.signal import convolve2d
+from .gen_kernel import blurkernel_synthesis as gen_kernel
 
-# from skimage.measure import compare_psnr
+
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -13,6 +16,8 @@ class dotdict(dict):
 
 
 def show(x, title=None, cbar=False, figsize=None):
+    if type(x) is torch.Tensor:
+        x = x.detach().cpu().numpy()
     plt.figure(figsize=figsize)
     plt.imshow(x, interpolation="nearest", cmap="gray")
     if title:
@@ -83,12 +88,21 @@ def crop_for_kernel(img, kernel):
 
 # [...,h,w] torch/numpy
 def center_crop(img, h, w=None):
-    if w == None:
-        w = h
+    w = h if w is None else w
     hh, ww = img.shape[-2:]
     if hh < h or ww < w:
         raise ValueError("size")
     top, left = (hh - h) // 2, (ww - w) // 2
+    return img[..., top : top + h, left : left + w]
+
+
+# [...,h,w] torch/numpy
+def rand_crop(img, h, w=None):
+    w = h if w is None else w
+    hh, ww = img.shape[-2:]
+    if hh < h or ww < w:
+        raise ValueError("size")
+    top, left = random.randint(0, hh - h), random.randint(0, ww - w)
     return img[..., top : top + h, left : left + w]
 
 
@@ -111,13 +125,13 @@ def log_mean(name, var):
     if type(var) is torch.Tensor:
         print(name, f"{var.detach().abs().mean().item():.4f}")
     else:
-        print(name, var)
+        print(name, f"{var:.3f}")
 
-def psnr(a, b):
-    z = torch.tensor(a.shape[-2] * a.shape[-1], dtype=a.dtype, device=a.device)
-    s = F.mse_loss(a, b) * z
-    m = (z / s).log10
-    return m
+
+# negative psnr
+def npsnr(a, b):
+    s = F.mse_loss(a, b).log10() * torch.tensor(10, dtype=a.dtype, device=a.device)
+    return s
     # n = compare_psnr(a.detach().cpu().numpy()[0, 0], b.detach().cpu().numpy()[0, 0])
     # print(m, n)
     # return 10*(a.shape[-2]*a.shape[-1]/s).log10

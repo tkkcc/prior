@@ -20,16 +20,14 @@ data:
 
 model:
 
-- fdn: pytorch port of https://github.com/uschmidt83/fourier-deconvolution-network
+- fdn: pytorch port of [fdn](https://github.com/uschmidt83/fourier-deconvolution-network)
 - fdn2: our model using closed form method
 - fdn3: our model using sgd method
 
 entry:
 
-```sh
-# train using BSD, mse loss, Adam
-python 1.py
-```
+- 1.py, train using BSD, mse loss, Adam
+- 2.py, reproduce FDN, BSD3000
 
 ## extra
 

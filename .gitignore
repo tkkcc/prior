@@ -8,3 +8,5 @@ __pycache__/
 .vscode/
 .Trash-1000/
 /*.zip
+/*.png
+/save
