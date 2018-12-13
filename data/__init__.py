@@ -40,7 +40,7 @@ class Levin(Dataset):
         k /= np.sum(k)
         y = to_tensor(edgetaper(pad_for_kernel(y, k, "edge"), k)).astype(np.float32)
         g = torch.from_numpy(g).unsqueeze(0)
-        y = torch.from_numpy(y).unsqueeze(0)
+        y = torch.from_numpy(y).squeeze(-1)
         k = torch.from_numpy(k)
         s = torch.tensor((1.5,), dtype=torch.float)
         return g, y, k, s

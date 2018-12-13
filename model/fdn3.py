@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from scipy.fftpack import idct
 
-from util import log_mean
+from util import log
 
 
 class ModelStage(nn.Module):
@@ -38,7 +38,7 @@ class ModelStage(nn.Module):
     def forward(self, inputs):
         if self.eta > 1:
             self.eta *= 0.98
-        log_mean("eta", self.eta)
+        log("eta", self.eta)
         # Bx1xHxW, Bx1xHxW, BxHxW, Bx1
         x, y, k, s = inputs
         k = k.permute(1, 2, 0).unsqueeze(-1)
@@ -48,7 +48,7 @@ class ModelStage(nn.Module):
         t1 = self.lam * irfft(t1)
         t1 = t1.unsqueeze(1)
         t2 = self.cnn(x)
-        log_mean("t2", t2)
+        log("t2", t2)
         out = x - self.eta * (t1 + t2)
         return out
 

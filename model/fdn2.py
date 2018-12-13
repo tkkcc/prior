@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from scipy.fftpack import idct
 
-from util import log_mean
+from util import log
 
 
 class ModelStage(nn.Module):
@@ -60,8 +60,8 @@ class ModelStage(nn.Module):
         x_in = x_in.permute(0, 2, 3, 1)
         x_adjustment = x_adjustment.permute(0, 2, 3, 1)
         y = y.permute(0, 2, 3, 1)
-        log_mean(" x_adjust", x_adjustment)
-        log_mean(" lam", lam)
+        log(" x_adjust", x_adjustment)
+        log(" lam", lam)
         x_out = self.fdn([x_in, x_adjustment, y, k, lam])
         return x_out.permute(0, 3, 1, 2)
 
@@ -175,7 +175,7 @@ class FDN(nn.Module):
         # todo norm or abs
         # otf_term = adjustment_fft.pow(2).sum(-1)
         otf_term = adjustment_fft.norm(2, -1)
-        log_mean(" otf_term", otf_term)
+        log(" otf_term", otf_term)
         denominator = lambdas * KtK + otf_term
         denominator = torch.stack((denominator,) * 2, -1)
         frac_fft = numerator_fft / denominator

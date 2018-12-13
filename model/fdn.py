@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from scipy.fftpack import idct
-from util import show
+from util import show, log
 
 
 def dct_filters(filter_size=(3, 3)):
@@ -25,10 +25,14 @@ def psf2otf(psf, shape):
     h, w = psf.shape[-2:]
     mh, mw = h // 2, w // 2
     otf = torch.zeros(psf.shape[:-2] + shape, dtype=psf.dtype, device=psf.device)
-    otf[:, :, :mh, :mw] = psf[:, :, :mh, :mw]
-    otf[:, :, :mh, -w + mw :] = psf[:, :, :mh, mw:]
-    otf[:, :, -h + mh :, :mw] = psf[:, :, mh:, :mw]
-    otf[:, :, -h + mh :, -w + mw :] = psf[:, :, mh:, mw:]
+    otf[:, :, : h - mh, : w - mw] = psf[:, :, mh:, mw:]
+    otf[:, :, -mh:, -mw:] = psf[:, :, :mh, :mw]
+    otf[:, :, : h - mh, -mw:] = psf[:, :, mh:, :mw]
+    otf[:, :, -mh:, : w - mw] = psf[:, :, :mh, mw:]
+    # otf[:, :, :mh, :mw] = psf[:, :, :mh, :mw]
+    # otf[:, :, :mh, -w + mw :] = psf[:, :, :mh, mw:]
+    # otf[:, :, -h + mh :, :mw] = psf[:, :, mh:, :mw]
+    # otf[:, :, -h + mh :, -w + mw :] = psf[:, :, mh:, mw:]
     otf = rfft(otf)
     return otf
 
@@ -76,7 +80,7 @@ def rfft(t):
 # Fourier Deconvolution Model
 # parameter: filter_weights
 class FDN(nn.Module):
-    def __init__(self, filter_size=(5, 5), stage=1, **kwargs):
+    def __init__(self, filter_size=(5, 5), stage=1):
         super(FDN, self).__init__()
         self.filter_size = filter_size
         self.stage = stage
@@ -109,18 +113,23 @@ class FDN(nn.Module):
         filters = filters.permute(1, 0).view(1, self.nb_filters, *self.filter_size)
         # filters_otfs: 1x24xHxWx2
         filter_otfs = psf2otf(filters, imagesize)
+        # filters = self.B.mm(self.filter_weights)
+        # filters = filters.reshape(
+        #     self.filter_size[0], self.filter_size[1], 1, self.nb_filters
+        # )
+        # filter_otfs = psf2otf_(filters, imagesize)
+
         # otf_term: sum(|F(f)|^2) 1xHxW
         otf_term = filter_otfs.pow(2).sum(-1).sum(1)
         # k_otf: BxHxWx2
         k_otf = psf2otf(blur_kernels, imagesize).squeeze(1)
-
         # boundary adjust
         # dataterm_fft: F(phi) x conj(F(k))
         if self.stage > 1:
             # use y's inner and (k conv x)'s outer
             Kx_fft = cm(rfft(padded_inputs), k_otf)
             Kx = irfft(Kx_fft)
-            Kx_outer = (1.0 - mask_int) * Kx
+            Kx_outer = (1 - mask_int) * Kx
             y_inner = mask_int * observations
             y_adjusted = y_inner + Kx_outer
             dataterm_fft = cm(rfft(y_adjusted), conj(k_otf))
@@ -196,7 +205,7 @@ class ModelStack(nn.Module):
     def __init__(self, stage=1, weight=None):
         super(ModelStack, self).__init__()
         self.m = nn.ModuleList(ModelStage(i + 1) for i in range(stage))
-        self.stage=stage
+        self.stage = stage
 
     def forward(self, d):
         for i in self.m:

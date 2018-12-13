@@ -15,7 +15,10 @@ def blurkernel_synthesis(h=37, w=None):
     w = h if w is None else w
     kdims = [h, w]
     x = randomTrajectory(200)
-    k = kernelFromTrajectory(x)
+    k = None
+    while k is None:
+        k = kernelFromTrajectory(x)
+
     # center pad to kdims
     pad_width = ((kdims[0] - k.shape[0]) // 2, (kdims[1] - k.shape[1]) // 2)
     pad_width = [(pad_width[0],), (pad_width[1],)]
@@ -29,14 +32,14 @@ def blurkernel_synthesis(h=37, w=None):
 def kernelFromTrajectory(x):
     h = 5 - log(rand()) / 0.15
     h = round(min([h, 27])).astype(int)
-    h = h + 1 - mod(h, 2)
+    h = h + 1 - h % 2
     w = h
     k = zeros((h, w))
 
-    xmin = min(x[0, :])
-    xmax = max(x[0, :])
-    ymin = min(x[1, :])
-    ymax = max(x[1, :])
+    xmin = min(x[0])
+    xmax = max(x[0])
+    ymin = min(x[1])
+    ymax = max(x[1])
     xthr = arange(xmin, xmax, (xmax - xmin) / w)
     ythr = arange(ymin, ymax, (ymax - ymin) / h)
 
@@ -49,6 +52,8 @@ def kernelFromTrajectory(x):
                 & (x[1, :] < ythr[j])
             )
             k[i - 1, j - 1] = sum(idx)
+    if sum(k) == 0:
+        return
     k = k / sum(k)
     k = convolve2d(k, fspecial_gauss(3, 1), "same")
     k = k / sum(k)

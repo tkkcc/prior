@@ -7,7 +7,8 @@ import random
 from scipy.signal import convolve2d
 from .gen_kernel import blurkernel_synthesis as gen_kernel
 
-
+from numpy import mean
+from math import isnan
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -15,7 +16,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
-def show(x, title=None, cbar=False, figsize=None):
+def show(x, title=None, cbar=False, figsize=None,save=None):
     if type(x) is torch.Tensor:
         x = x.detach().cpu().numpy()
     plt.figure(figsize=figsize)
@@ -24,7 +25,10 @@ def show(x, title=None, cbar=False, figsize=None):
         plt.title(title)
     if cbar:
         plt.colorbar()
-    plt.show()
+    if save is not None:
+        plt.savefig(save)
+    else:
+        plt.show()
 
 
 def pad(img, kernel, mode="reflect"):
@@ -118,10 +122,7 @@ def center_pad(img, h, w=None):
 
 
 # abs mean
-def log_mean(name, var):
-    # return
-    # if name != "loss":
-    #     return
+def log(name, var):
     if type(var) is torch.Tensor:
         print(name, f"{var.detach().abs().mean().item():.4f}")
     else:
