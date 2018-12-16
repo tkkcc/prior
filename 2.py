@@ -3,7 +3,7 @@ import os
 # disable x
 import matplotlib
 
-# matplotlib.use("Agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
@@ -27,7 +27,7 @@ def train(m, p=None):
     num = 0
     losss = []
     mse = torch.nn.MSELoss()
-    stage = 1 if p else p.stage + 1
+    stage = 1 if not p else p.stage + 1
     for epoch in range(o.epoch):
         for i in tqdm(d):
             g, y, k, s = [x.to(o.device) for x in i]
@@ -117,9 +117,9 @@ def test(m):
 
 
 if __name__ == "__main__":
-    m = DataParallel(ModelStack(1)).to(o.device)
-    load(m, torch.load(f"save/01-10g.tar"))
-    test(m)
-    # for i in range(1, 11):
-    #     print("greedy train stage " + str(i))
-    #     greedy(i)
+    # m = DataParallel(ModelStack(1)).to(o.device)
+    # load(m, torch.load(f"save/01-10g.tar"))
+    # test(m)
+    for i in range(1, 11):
+        print("greedy train stage " + str(i))
+        greedy(i)

@@ -49,7 +49,7 @@ class Sun(Dataset):
         return g, y, k, s
 
     __len__ = lambda self: len(self.d)
-    
+
 class Levin(Dataset):
     def __init__(self):
         self.d = list(Path(f"data/Levin09blurdata").iterdir())
@@ -79,7 +79,7 @@ class BSD3000(Dataset):
         d = Path(f"data/BSR/BSDS500/data/images/").glob("t*/*")
         self.d = [i for i in d if i.is_file()]
         self.gs = 284
-        self.ks = 31
+        self.ks = 37
         self.total = total
         random.seed(0)
 
