@@ -25,11 +25,37 @@ from util import (
 # return shape [1,284,284] [1,320,320] [37,37] [1]
 
 
-class Levin(Dataset):
+class Sun(Dataset):
     def __init__(self):
-        self.d = [i for i in Path(f"data/Levin09blurdata").iterdir()]
+        self.d =list(Path(f"data/input80imgs8kernels").glob('*_blurred.png'))
 
     def __getitem__(self, i):
+        i=self.d[i]
+        print(i)
+        p = str(i.name)
+        g, k = p.split("_")[:2]
+        g = imread(i.parent / f"img{g}_groundtruth_img.png")
+        k = imread(i.parent / f"kernel{k}_groundtruth_kernel.png")
+        y = imread(i)
+        [g, k, y] = [i.astype(np.float32)/255 for i in [g, k, y]]
+        # k = k[::-1, ::-1]
+        k = np.clip(k, 0, 1)
+        k /= np.sum(k)
+        y = to_tensor(edgetaper(pad_for_kernel(y, k, "edge"), k)).astype(np.float32)
+        g = torch.from_numpy(g).unsqueeze(0)
+        y = torch.from_numpy(y).squeeze(-1)
+        k = torch.from_numpy(k)
+        s = torch.tensor((2.55,), dtype=torch.float)
+        return g, y, k, s
+
+    __len__ = lambda self: len(self.d)
+    
+class Levin(Dataset):
+    def __init__(self):
+        self.d = list(Path(f"data/Levin09blurdata").iterdir())
+
+    def __getitem__(self, i):
+        print(self.d[i])
         mat = loadmat(self.d[i])
         g = mat["x"].astype(np.float32)
         y = mat["y"].astype(np.float32)
@@ -49,12 +75,12 @@ class Levin(Dataset):
 
 
 class BSD3000(Dataset):
-    # type=['train','test','val']
-    def __init__(self):
+    def __init__(self, total=3000):
         d = Path(f"data/BSR/BSDS500/data/images/").glob("t*/*")
         self.d = [i for i in d if i.is_file()]
         self.gs = 284
-        self.ks = 37
+        self.ks = 31
+        self.total = total
         random.seed(0)
 
     def __getitem__(self, i):
@@ -84,7 +110,7 @@ class BSD3000(Dataset):
         return g, y, k, s
 
     def __len__(self):
-        return 3000
+        return self.total
 
 
 class BSD(Dataset):

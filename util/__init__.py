@@ -9,6 +9,8 @@ from .gen_kernel import blurkernel_synthesis as gen_kernel
 
 from numpy import mean
 from math import isnan
+from collections import OrderedDict
+
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -16,19 +18,14 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
-def show(x, title=None, cbar=False, figsize=None,save=None):
+def show(x, save=None):
     if type(x) is torch.Tensor:
         x = x.detach().cpu().numpy()
-    plt.figure(figsize=figsize)
+    plt.clf()
     plt.imshow(x, interpolation="nearest", cmap="gray")
-    if title:
-        plt.title(title)
-    if cbar:
-        plt.colorbar()
+    plt.show()
     if save is not None:
         plt.savefig(save)
-    else:
-        plt.show()
 
 
 def pad(img, kernel, mode="reflect"):
@@ -80,7 +77,7 @@ def from_tensor(img):
 
 def pad_for_kernel(img, kernel, mode):
     p = [(d - 1) // 2 for d in kernel.shape]
-    padding = [p, p] + (img.ndim - 2) * [(0, 0)]
+    padding = [(p[0], p[0]), (p[1], p[1])] + (img.ndim - 2) * [(0, 0)]
     return np.pad(img, padding, mode)
 
 
@@ -131,8 +128,48 @@ def log(name, var):
 
 # negative psnr
 def npsnr(a, b):
-    s = F.mse_loss(a, b).log10() * torch.tensor(10, dtype=a.dtype, device=a.device)
+    assert a.shape == b.shape
+    # mean(dim=list) polyfill for 0.4
+    l = a[0].numel()
+    d = [i + 1 for i in range(a.dim() - 1)]
+    t = torch.tensor(10, dtype=a.dtype, device=a.device)
+    s = ((a - b).pow(2).sum(d) / l).log10().mean() * t
+    # s = (F.mse_loss(a, b)).log10() * torch.tensor(10, dtype=a.dtype, device=a.device)
     return s
-    # n = compare_psnr(a.detach().cpu().numpy()[0, 0], b.detach().cpu().numpy()[0, 0])
-    # print(m, n)
-    # return 10*(a.shape[-2]*a.shape[-1]/s).log10
+
+
+def npsnr_align_max(a, b):
+    hh, ww = b.shape[-2:]
+    h, w = a.shape[-2:]
+    assert ww >= w and hh > h and (ww - w) % 2 == 0 and (hh - h) % 2 == 0
+    psnr = 0
+    for t in range(hh - h):
+        for l in range(ww - w):
+            r = b[..., t : t + h, l : l + w]
+            npt = npsnr(a, r)
+            p = -npt.detach().item()
+            if p > psnr:
+                left = l
+                top = t
+                psnr = p
+                result = r
+                npsnrt = npt
+    left -= (ww - w) // 2
+    top -= (hh - h) // 2
+    return npsnrt, result, left, top
+
+
+# load model state, DataParallel compatible, partial load
+def load(m, d):
+    a = OrderedDict()
+    s = m.state_dict()
+    for k in s:
+        a[k] = d[k] if k in d else d[k[7:]] if k.startswith("module.") else d["module." + k]
+    (m if hasattr(m, "load_state_dict") else m.module).load_state_dict(a)
+
+
+def change_key(a, f):
+    b = OrderedDict()
+    for i in a:
+        b[f(i)] = a[i]
+    return b

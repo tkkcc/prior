@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
 from scipy.fftpack import idct
 from util import show, log
 
@@ -90,62 +89,58 @@ class FDN(nn.Module):
         self.filter_weights = nn.Parameter(torch.tensor(np.eye(self.nb_filters), dtype=torch.float))
 
     def forward(self, inputs, mask=None):
-        # C(Channel)=1
         # Bx1xHxW,     Bx1xHxW,    Bx1xHxW,       Bxhxw       ,Bx1
-        # x^t,         CNN(x^t),   y=x^0,         k,          ,mlp(lambda)=omega(lambda)
-        padded_inputs, adjustments, observations, blur_kernels, lambdas = inputs
-        observations = observations.squeeze(1)
-        padded_inputs = padded_inputs.squeeze(1)
-        adjustments = adjustments.squeeze(1)
-        blur_kernels = blur_kernels.unsqueeze(1)
-        imagesize = padded_inputs.shape[-2:]
-        kernelsize = blur_kernels.shape[-2:]
-        padding = [i // 2 for i in kernelsize]
+        # x^t,         CNN(x^t),   y=x^0,         k,          ,omega=omega(lambda)
+        x, cnnx, y, k, omega = inputs
+        y = y.squeeze(1)
+        x = x.squeeze(1)
+        cnnx = cnnx.squeeze(1)
+        k = k.unsqueeze(1)
+        imagesize = x.shape[-2:]
+        kernelsize = k.shape[-2:]
+        pad_width = [i // 2 for i in kernelsize]
         # internal mask for boundary adjust
         mask_int = torch.ones(
-            imagesize[0] - 2 * padding[0], imagesize[1] - 2 * padding[1], dtype=torch.float32
+            imagesize[0] - 2 * pad_width[0],
+            imagesize[1] - 2 * pad_width[1],
+            dtype=x.dtype,
+            device=x.device,
         )
-        mask_int = F.pad(mask_int, (padding[1], padding[1], padding[0], padding[0]))
+        mask_int = F.pad(mask_int, (pad_width[1], pad_width[1], pad_width[0], pad_width[0]))
         mask_int = mask_int.unsqueeze(0)
-        if self.filter_weights.device != self.B.device:
-            self.B = self.B.to(self.filter_weights.device)
+        if x.device != self.B.device:
+            self.B = self.B.to(x.device)
         filters = self.B.mm(self.filter_weights)
+        log("filter", filters)
         filters = filters.permute(1, 0).view(1, self.nb_filters, *self.filter_size)
         # filters_otfs: 1x24xHxWx2
         filter_otfs = psf2otf(filters, imagesize)
-        # filters = self.B.mm(self.filter_weights)
-        # filters = filters.reshape(
-        #     self.filter_size[0], self.filter_size[1], 1, self.nb_filters
-        # )
-        # filter_otfs = psf2otf_(filters, imagesize)
-
         # otf_term: sum(|F(f)|^2) 1xHxW
         otf_term = filter_otfs.pow(2).sum(-1).sum(1)
         # k_otf: BxHxWx2
-        k_otf = psf2otf(blur_kernels, imagesize).squeeze(1)
+        k_otf = psf2otf(k, imagesize).squeeze(1)
         # boundary adjust
         # dataterm_fft: F(phi) x conj(F(k))
         if self.stage > 1:
             # use y's inner and (k conv x)'s outer
-            Kx_fft = cm(rfft(padded_inputs), k_otf)
+            Kx_fft = cm(rfft(x), k_otf)
             Kx = irfft(Kx_fft)
             Kx_outer = (1 - mask_int) * Kx
-            y_inner = mask_int * observations
+            y_inner = mask_int * y
             y_adjusted = y_inner + Kx_outer
             dataterm_fft = cm(rfft(y_adjusted), conj(k_otf))
         else:
             # use edgetaping
-            observations_fft = rfft(observations)
-            dataterm_fft = cm(observations_fft, conj(k_otf))
-        lambdas = lambdas.unsqueeze(-1)
-
+            y_fft = rfft(y)
+            dataterm_fft = cm(y_fft, conj(k_otf))
+        omega = omega.unsqueeze(-1)
         # numerator_fft: omega x dataterm + CNN(x^t)
-        adjustment_fft = rfft(adjustments)
-        numerator_fft = cm(r2c(lambdas), dataterm_fft) + adjustment_fft
+        cnnx_fft = rfft(cnnx)
+        numerator_fft = cm(r2c(omega), dataterm_fft) + cnnx_fft
         # KtK: |F(k)|^2 BxHxW
         KtK = k_otf.pow(2).sum(-1)
         # denominator_fft: omega x |F(k)|^2 + sum(|F(f)|^2)
-        denominator_fft = lambdas * KtK + otf_term
+        denominator_fft = omega * KtK + otf_term
         # numerator/denominator, complex/real, BxHxWx2/BxHxWx2=>BxHxWx2
         t = torch.stack((denominator_fft,) * 2, -1)
         frac_fft = numerator_fft / t
@@ -189,15 +184,24 @@ class ModelStage(nn.Module):
 
         # fdn, filter 5x5
         self.fdn = FDN((5, 5), stage)
-        # use (0,1)uniform random init
+        # use (0,1) uniform random init
+        # for m in self.modules():
+            # if isinstance(m, nn.Conv2d):
+                # nn.init.constant_(m.weight, 0)
+                # nn.init.constant_(m.bias, 0)
+            # elif isinstance(m, nn.Linear):
+                # nn.init.constant_(m.weight, 0)
+                # nn.init.constant_(m.bias, 0)
 
     def forward(self, inputs):
         # Bx1xHxW, BxHxWx1, BxHxW, Bx1
-        x_in, y, k, s = inputs
-        lam = self.mlp(s.pow(-2))
-        x_adjustment = self.cnn(x_in)
-        x_out = self.fdn([x_in, x_adjustment, y, k, lam])
-        return x_out
+        x, y, k, s = inputs
+        omega = self.mlp(s.pow(-2))
+        cnnx = self.cnn(x)
+        log("cnnx", cnnx)
+        log("omega", omega)
+        x = self.fdn([x, cnnx, y, k, omega])
+        return x
 
 
 # stack multi ModelStage
