@@ -28,8 +28,9 @@ data:
 model:
 
 - fdn: pytorch port of [fdn](https://github.com/uschmidt83/fourier-deconvolution-network)
-- fdn2: our model using closed form method
-- fdn3: our model using sgd method
+- ~~fdn2: our model using closed form method~~
+- ~~fdn3: our model using sgd method~~
+- fdn5: current method, conv with sigmoid
 
 save:
 
@@ -38,7 +39,8 @@ save:
 
 entry:
 
-- 2.py, reproduce FDN, BSD3000
+- 0.py, compute second derivative, `autograd` vs `manual`  
+- 4.py, main entry
 
 ## extra
 

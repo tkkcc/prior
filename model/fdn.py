@@ -111,7 +111,7 @@ class FDN(nn.Module):
         if x.device != self.B.device:
             self.B = self.B.to(x.device)
         filters = self.B.mm(self.filter_weights)
-        log("filter", filters)
+        # log("filter", filters)
         filters = filters.permute(1, 0).view(1, self.nb_filters, *self.filter_size)
         # filters_otfs: 1x24xHxWx2
         filter_otfs = psf2otf(filters, imagesize)
@@ -198,8 +198,8 @@ class ModelStage(nn.Module):
         x, y, k, s = inputs
         omega = self.mlp(s.pow(-2))
         cnnx = self.cnn(x)
-        log("cnnx", cnnx)
-        log("omega", omega)
+        # log("cnnx", cnnx)
+        # log("omega", omega)
         x = self.fdn([x, cnnx, y, k, omega])
         return x
 
