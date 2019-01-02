@@ -12,6 +12,6 @@ __pycache__/
 /*.rar
 /*.png
 /save/*
-!/save/01f.tar
-!/save/01-10g.tar
+#!/save/01f.tar
+#!/save/01-10g.tar
 /0.py

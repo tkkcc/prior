@@ -19,6 +19,58 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
+# divide psf to 4 parts, and assign to corners of a zero tensor,
+# size as shape, then do fft
+# psf: *xhxw, shape: [H,W]
+# out: *xHxW
+def psf2otf(psf, shape):
+    h, w = psf.shape[-2:]
+    mh, mw = h // 2, w // 2
+    otf = torch.zeros(psf.shape[:-2] + shape, dtype=psf.dtype, device=psf.device)
+    otf[..., : h - mh, : w - mw] = psf[..., mh:, mw:]
+    otf[..., -mh:, -mw:] = psf[..., :mh, :mw]
+    otf[..., : h - mh, -mw:] = psf[..., mh:, :mw]
+    otf[..., -mh:, : w - mw] = psf[..., :mh, mw:]
+    otf = rfft(otf)
+    return otf
+
+
+# complex multiplication, axbxcx2,axbxcx2=>axbxcx2
+def cm(t1, t2):
+    real1, imag1 = t1[..., 0], t1[..., 1]
+    real2, imag2 = t2[..., 0], t2[..., 1]
+    return torch.stack([real1 * real2 - imag1 * imag2, real1 * imag2 + imag1 * real2], dim=-1)
+
+
+# complex's conjugation
+def conj(t, inplace=False):
+    c = t.clone() if not inplace else t
+    c[..., 1] *= -1
+    return c
+
+
+# real to complex, axbxc=>axbxcx2
+def r2c(t):
+    return torch.stack((t, torch.zeros_like(t)), -1)
+
+
+# 2d fft wrapper
+def irfft(t):
+    return torch.irfft(t, 2, onesided=False)
+
+
+def ifft(t):
+    return torch.ifft(t, 2, onesided=False)
+
+
+def fft(t):
+    return torch.fft(t, 2, onesided=False)
+
+
+def rfft(t):
+    return torch.rfft(t, 2, onesided=False)
+
+
 def show(x, save=None):
     for i in range(x.dim() - 2):
         x = x[0]

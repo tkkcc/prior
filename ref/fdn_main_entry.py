@@ -1,10 +1,7 @@
-import os
-
-# disable x
+# just for reference, used to reproduce fdn
 import matplotlib
 
 matplotlib.use("Agg")
-
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
@@ -13,7 +10,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Subset
 from tqdm import tqdm
 
 from config import o
-from data import BSD, BSD3000, Levin, Sun
+from data import BSD3000, Levin, Sun
 from model import ModelStack, ModelStage
 from util import center_crop, change_key, crop, isnan, load, log, mean, npsnr, npsnr_align_max, show
 
@@ -23,7 +20,7 @@ print("use " + o.device)
 
 # m:model to train, p:pre models
 def train(m, p=None):
-    d = DataLoader(BSD3000(noise=False, edgetaper=False), o.batch_size, num_workers=o.num_workers)
+    d = DataLoader(BSD3000(), o.batch_size, num_workers=o.num_workers)
     optimizer = torch.optim.Adam(m.parameters(), lr=o.lr)
     iter_num = len(d)
     num = 0
@@ -33,14 +30,14 @@ def train(m, p=None):
         for i in tqdm(d):
             g, y, k, s = [x.to(o.device) for x in i]
             k = k.flip(1, 2)
-            x = torch.tensor(y, requires_grad=True)
+            x = y
             if p:
                 with torch.no_grad():
                     x = p([x, y, k, s])
             optimizer.zero_grad()
             out = m([x, y, k, s])
             log("out", out)
-            out = center_crop(out, *g.shape[-2:])
+            out = crop(out, k)
             loss = npsnr(out, g)
             loss.backward()
             optimizer.step()
@@ -49,11 +46,11 @@ def train(m, p=None):
             print("stage", stage, "epoch", epoch + 1)
             log("loss", mean(losss[-5:]))
             num += 1
-            # if num > (o.epoch * iter_num - 4):
-            if num % 20 == 0:
+            if num > (o.epoch * iter_num - 4):
+                # if num % 6 == 1:
                 show(
-                    torch.cat((center_crop(y, *g.shape[-2:])[0, 0], g[0, 0], out[0, 0]), 1),
-                    save=f"save/{stage:02}{epoch:02}.png",
+                    torch.cat((crop(y, k)[0, 0], g[0, 0], out[0, 0]), 1),
+                    # save=f"save/{stage:02}{epoch:02}.png",
                 )
     plt.clf()
     plt.plot(range(len(losss)), losss)
@@ -67,7 +64,6 @@ def train(m, p=None):
 def greedy(stage=1):
     p = None
     m = DataParallel(ModelStack(1)).to(o.device)
-    # load(m, "save/01-10g.tar")
     if stage > 1:
         p = DataParallel(ModelStack(stage - 1)).to(o.device)
         load(p, "save/01-10g.tar")
@@ -102,6 +98,33 @@ def test(m):
         log("psnr avg", sum(losss) / len(losss))
 
 
+# Levin
+# def test(m):
+#     m.eval()
+#     with torch.no_grad():
+#         d = DataLoader(Levin(), 1)
+#         losss = []
+#         for i in tqdm(d):
+#             g, y, k, s = [x.to(o.device) for x in i]
+#             out = m([y, y, k, s])
+#             g = crop(g, k)
+#             out = crop(out, k)
+#             g = crop(g, k)
+#             out = crop(out, k)
+#             loss, out, left, top = npsnr_align_max(g, out)
+#             losss.append(-loss.detach().item())
+#             log("psnr", losss[-1])
+#             # show(torch.cat((center_crop(y, *g.shape[-2:])[0, 0], g[0, 0], out[0, 0]), 1))
+#         log("psnr avg", sum(losss) / len(losss))
+
 
 if __name__ == "__main__":
-    greedy(1)
+    # m = DataParallel(ModelStack(10)).to(o.device)
+    # load(m, f"save/01-10g.tar")
+    # test(m)
+    # o.lrs = [o.lr-(o.lr-0.001)/9*i for i in range(10)]
+    for i in range(2, 11):
+        # o.lr=o.lrs[i-1]
+        print("greedy train stage " + str(i) + ", lr " + f"{o.lr:.3f}")
+        greedy(i)
+
