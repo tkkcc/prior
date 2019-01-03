@@ -178,10 +178,13 @@ def log(a, name=""):
         name, a = a, name
     if type(a) is torch.Tensor:
         a = a.detach()
-        print(
-            name,
-            f"{a.mean().item():.4f} {a.var().item():.4f} {a.max().item():.4f} {a.min().item():.4f}",
-        )
+        if a.numel()==1:
+            print(name,f"{a.item():.4f}")
+        else:
+            print(
+                name,
+                f"{a.mean().item():.4f} {a.var().item():.4f} {a.max().item():.4f} {a.min().item():.4f}",
+            )
     else:
         print(name, f"{a:.3f}")
 
