@@ -74,7 +74,7 @@ def greedy(stage=1):
     a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
     if p:
         a.update(p.module.state_dict())
-    torch.save(a, "save/01-10g.tar")
+    # torch.save(a, "save/01-10g.tar")
 
 
 def test(m):

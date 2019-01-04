@@ -192,14 +192,14 @@ def log(a, name=""):
 # negative psnr, [B]xCxHxW
 def npsnr(a, b):
     assert a.shape == b.shape
-    t = torch.tensor(10, dtype=a.dtype, device=a.device)
+    # t = torch.tensor(10, dtype=a.dtype, device=a.device)
     if a.dim() == 3:
         # bug in 0.4.1
-        return F.mse_loss(a, b).log10() * t
+        return F.mse_loss(a, b).log10() * 10
     # mean(dim=list) polyfill for 0.4.1
     l = a[0].numel()
     d = list(range(1, a.dim()))
-    s = ((a - b).pow(2).sum(d) / l).log10().mean() * t
+    s = ((a - b).pow(2).sum(d) / l).log10().mean() * 10
     return s
 
 
@@ -247,4 +247,6 @@ def change_key(a, f):
 
 
 def parameter(x, scale=1):
+    if type(x) is not list:
+        return nn.Parameter(x)
     return nn.ParameterList([nn.Parameter(i * scale) for i in x])
