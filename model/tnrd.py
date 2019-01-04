@@ -19,7 +19,8 @@ class ModelStage(nn.Module):
         # self.weight = torch.randn(1, filter_num, penalty_num, 1, 1) * 0.1
         mat = loadmat("data/w0_63_means.mat")
         self.mean = torch.tensor(mat["means"], dtype=torch.float).view(1, 1, penalty_num, 1, 1)
-        self.weight = torch.tensor(mat["w"], dtype=torch.float).view(1, 1,penalty_num,  1, 1)
+        self.weight = torch.tensor(mat["w"], dtype=torch.float).view(1, 1, penalty_num, 1, 1)
+        self.weight *= 10 if stage == 1 else 5 if stage == 2 else 1
         self.weight = self.weight.repeat(1, filter_num, 1, 1, 1)
         self.filter = torch.randn(filter_num, 1, filter_size, filter_size)
         self.pad = nn.ReplicationPad2d(filter_size // 2)
@@ -28,6 +29,7 @@ class ModelStage(nn.Module):
         self.lam = nn.Parameter(self.lam)
         self.weight = nn.Parameter(self.weight)
         self.filter = nn.Parameter(self.filter)
+
 
     # Bx1xHxW
     def forward(self, inputs):

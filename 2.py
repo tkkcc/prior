@@ -24,7 +24,7 @@ def train(m, p=None):
     losss = []
     stage = 1 if not p else p.stage + 1
     for epoch in range(o.epoch):
-        for i in tqdm(d):
+        for i in tqdm(d, mininterval=1):
             g, y, s = [x.to(o.device) for x in i]
             x = torch.tensor(y, requires_grad=False)
             if p:
