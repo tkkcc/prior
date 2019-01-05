@@ -13,7 +13,7 @@ class ModelStage(nn.Module):
         penalty_num = 63
         self.channel = channel = filter_num = 24
         self.filter_size = filter_size = 5
-        self.basis = torch.tensor(gen_dct2(filter_size),dtype=torch.float)
+        self.basis = torch.tensor(gen_dct2(filter_size), dtype=torch.float)
         self.lam = torch.tensor(0 if stage == 1 else log(0.1), dtype=torch.float)
         # self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
         # self.weight = torch.randn(1, filter_num, penalty_num, 1, 1) * 0.1
@@ -48,33 +48,36 @@ class ModelStage(nn.Module):
     def forward(self, inputs):
         # y=x^0
         x, y, lam = inputs
+        x *= 255
+        y *= 255
         xx = x
         self.mean = self.mean.to(x.device)
         self.basis = self.basis.to(x.device)
-        # f = []
-        # for i in self.filter:
-        #     t = (
-        #         (self.basis @ i)
-        #         .permute(1, 0)
-        #         .view(self.channel, -1, self.filter_size, self.filter_size)
-        #     )
-        #     f.append(t / t.norm(2))
-        f = [i / i.norm(2) for i in self.filter]
+        f = self.filter
+        # f = [
+        #     (self.basis @ i)
+        #     .permute(1, 0)
+        #     .view(self.channel, -1, self.filter_size, self.filter_size)
+        #     for i in f
+        # ]
+        f = [
+            i / i.view(i.shape[0] * i.shape[1], -1).norm(dim=1).view(*i.shape[:2], 1, 1) for i in f
+        ]
         x = c1 = F.conv2d(self.pad(x), f[0])
 
-        x = (((x.unsqueeze(2) - self.mean).pow(2) / -200).exp() * self.actw[0]).sum(2)
-        x = F.conv2d(self.pad(x), f[1])
+        # x = (((x.unsqueeze(2) - self.mean).pow(2) / -200).exp() * self.actw[0]).sum(2)
+        # x = F.conv2d(self.pad(x), f[1])
 
         x = (((x.unsqueeze(2) - self.mean).pow(2) / -200).exp() * self.actw[1]).sum(2)
 
-        x = self.crop(F.conv_transpose2d(x, f[1]))
-        c1=c1.unsqueeze(2)
-        x = x * (
-            ((c1 - self.mean).pow(2) / -200).exp() * (c1 - self.mean) / -100 * self.actw[0]
-        ).sum(2)
+        # x = self.crop(F.conv_transpose2d(x, f[1]))
+        # c1=c1.unsqueeze(2)
+        # x = x * (
+        #     ((c1 - self.mean).pow(2) / -200).exp() * (c1 - self.mean) / -100 * self.actw[0]
+        # ).sum(2)
 
         x = self.crop(F.conv_transpose2d(x, f[0]))
-        return xx - (x + self.lam.exp() * (xx - y))
+        return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
 
 class ModelStack(nn.Module):

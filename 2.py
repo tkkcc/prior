@@ -95,8 +95,8 @@ def test(m):
             loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
-            log("input psnr", npsnr(g, y))
-            log("psnr", losss[-1])
+            log("input psnr", -npsnr(g, y))
+            log("psnr", -losss[-1])
             show(torch.cat((y[0, 0], g[0, 0], out[0, 0]), 1))
         log("psnr avg", sum(losss) / len(losss))
 
