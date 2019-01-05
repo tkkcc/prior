@@ -7,7 +7,7 @@ from torch import nn
 import random
 from scipy.signal import convolve2d
 from .gen_kernel import blurkernel_synthesis as gen_kernel
-
+from .gen_dct2 import gen_dct2
 from numpy import mean
 from math import isnan
 from collections import OrderedDict
@@ -178,8 +178,8 @@ def log(a, name=""):
         name, a = a, name
     if type(a) is torch.Tensor:
         a = a.detach()
-        if a.numel()==1:
-            print(name,f"{a.item():.4f}")
+        if a.numel() == 1:
+            print(name, f"{a.item():.4f}")
         else:
             print(
                 name,

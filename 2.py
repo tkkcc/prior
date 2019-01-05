@@ -15,6 +15,7 @@ from util import center_crop, change_key, crop, isnan, load, log, mean, npsnr, n
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 
+
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(TNRD400(), o.batch_size, num_workers=o.num_workers)
@@ -22,6 +23,7 @@ def train(m, p=None):
     iter_num = len(d)
     num = 0
     losss = []
+    mean_losss = []
     stage = 1 if not p else p.stage + 1
     for epoch in range(o.epoch):
         for i in tqdm(d, mininterval=1):
@@ -38,19 +40,23 @@ def train(m, p=None):
             optimizer.step()
             losss.append(loss.detach().item())
             assert not isnan(losss[-1])
-            print("stage", stage, "epoch", epoch + 1)
-            log("loss", mean(losss[-5:]))
-            log("psnr", npsnr(g, out.detach()))
+
             num += 1
-            # if num > (o.epoch * iter_num - 4):
-            if num % 200 == 0:
+            if num % 10 == 0:
+                print("\nstage", stage, "epoch", epoch + 1)
+                log("loss", mean(losss[-10:]))
+                log("psnr", npsnr(g, out.detach()))
+            # if num % 200 == 0:
+            if num > (o.epoch * iter_num - 4):
                 show(
                     torch.cat((y[0, 0], g[0, 0], out[0, 0]), 1),
-                    # save=f"save/{stage:02}{epoch:02}.png",
+                    save=f"save/{stage:02}{epoch:02}.png",
                 )
+        mean_losss.append(mean(losss))
+        losss.clear()
     plt.clf()
-    plt.plot(range(len(losss)), losss)
-    plt.xlabel("batch")
+    plt.plot(range(len(mean_losss)), mean_losss)
+    plt.xlabel("epoch")
     plt.ylabel("loss")
     plt.title(f"{iter_num} iter x {o.epoch} epoch")
     plt.savefig(f"save/{stage:02}loss.png")
@@ -74,13 +80,13 @@ def greedy(stage=1):
     a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
     if p:
         a.update(p.module.state_dict())
-    # torch.save(a, "save/01-10g.tar")
+    torch.save(a, "save/01-10g.tar")
 
 
 def test(m):
     m.eval()
     with torch.no_grad():
-        d = DataLoader(TNRD68_03(), 1)
+        d = DataLoader(TNRD68(), 1)
         losss = []
         for i in tqdm(d):
             g, y, s = [x.to(o.device) for x in i]
