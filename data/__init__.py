@@ -23,6 +23,7 @@ def _denoise(path, crop=True):
 
         def __getitem__(self, i):
             # g = imread(random.choice(self.d)) / 255
+            print(self.d[i])
             g = imread(self.d[i]) / 255
             g = rgb2gray(g).astype(np.float32)
             g = rand_crop(g, self.gs) if crop else g
@@ -46,4 +47,5 @@ BSD400 = _f(Path(f"data/BSR/BSDS500/data/images/").glob("t*/*"))
 TNRD400 = _f(Path(f"data/FoETrainingSets180/").glob("*"))
 # tnrd tests
 TNRD68 = _f(Path(f"data/68imgs/").glob("*"), crop=False)
-TNRD68_03 = _f(Path(f"data/68imgs/").glob('test003*'), crop=False)
+TNRD68_03 = _f(Path(f"data/68imgs/").glob("test003*"), crop=False)
+TNRD68_01 = _f(Path(f"data/68imgs/").glob("test001*"), crop=False)

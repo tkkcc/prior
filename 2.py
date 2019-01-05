@@ -1,6 +1,6 @@
 import matplotlib
 
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
@@ -18,7 +18,7 @@ o.device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # m:model to train, p:pre models
 def train(m, p=None):
-    d = DataLoader(TNRD400(), o.batch_size, num_workers=o.num_workers)
+    d = DataLoader(TNRD400(), o.batch_size, num_workers=o.num_workers, shuffle=True, drop_last=True)
     optimizer = torch.optim.Adam(m.parameters(), lr=o.lr)
     iter_num = len(d)
     num = 0
@@ -97,14 +97,14 @@ def test(m):
             assert not isnan(losss[-1])
             log("input psnr", npsnr(g, y))
             log("psnr", losss[-1])
-            show(torch.cat((y[0, 0], g[0, 0], out[0, 0]), 1))
+            # show(torch.cat((y[0, 0], g[0, 0], out[0, 0]), 1))
         log("psnr avg", sum(losss) / len(losss))
 
 
 if __name__ == "__main__":
-    print(o)
-    greedy(1)
+    # print(o)
+    # greedy(1)
     print("========test==========")
     m = ModelStack(1).to(o.device)
-    load(m, "save/01-10g.tar")
+    # load(m, "save/01-10g.tar")
     test(m)
