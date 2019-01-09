@@ -1,7 +1,7 @@
 import torch.nn.functional as F
 from scipy.signal import fftconvolve
 import numpy as np
-import matplotlib.pyplot as plt
+
 import torch
 from torch import nn
 import random
@@ -11,6 +11,7 @@ from .gen_dct2 import gen_dct2
 from numpy import mean
 from math import isnan
 from collections import OrderedDict
+from tensorboardX import SummaryWriter
 
 
 class dotdict(dict):
@@ -72,6 +73,8 @@ def rfft(t):
 
 
 def show(x, save=None):
+    import matplotlib.pyplot as plt
+
     for i in range(x.dim() - 2):
         x = x[0]
     if type(x) is torch.Tensor:
@@ -173,24 +176,25 @@ def center_pad(img, h, w=None):
 
 
 # abs mean
-def log(a, name=""):
+def log(a, name="", **arg):
+    p = lambda *x: print(*x, **arg)
     if type(a) is str:
         name, a = a, name
     if type(a) is torch.Tensor:
         a = a.detach()
         if a.numel() == 1:
-            print(name, f"{a.item():.4f}")
+            p(name, f"{a.item():.4f}")
         else:
-            print(
+            p(
                 name,
                 f"{a.mean().item():.4f} {a.var().item():.4f} {a.max().item():.4f} {a.min().item():.4f}",
             )
     else:
-        print(name, f"{a:.3f}")
+        p(name, f"{a:.3f}")
 
 
 # negative psnr, [B]xCxHxW
-def npsnr(a, b):
+def npsnr(a, b, reduction="mean"):
     assert a.shape == b.shape
     # t = torch.tensor(10, dtype=a.dtype, device=a.device)
     if a.dim() == 3:
@@ -199,7 +203,8 @@ def npsnr(a, b):
     # mean(dim=list) polyfill for 0.4.1
     l = a[0].numel()
     d = list(range(1, a.dim()))
-    s = ((a - b).pow(2).sum(d) / l).log10().mean() * 10
+    s = ((a - b).pow(2).sum(d) / l).log10()
+    s = 10 * (s.mean() if reduction == "mean" else s.sum())
     return s
 
 
@@ -250,3 +255,26 @@ def parameter(x, scale=1):
     if type(x) is not list:
         return nn.Parameter(x)
     return nn.ParameterList([nn.Parameter(i * scale) for i in x])
+
+
+# for numpy, from ffdnet-pytorch
+# *xHxW
+def augment(x):
+    # rotate 0,90,180,270, flip up2down,left2right
+    x = np.rot90(x, random.randint(0, 3), (-2, -1))
+    x = np.flip(x, random.randint(-2, -1)) if random.random() > 0.5 else x
+    return x.copy()
+
+
+def l2(g, x):
+    return (g - x).pow(2).sum()
+
+
+#  horizontal and vertical grad diff norm 1 sum
+def grad_diff(g, x):
+    a = g[..., 1:, :] - g[..., :-1, :]
+    b = x[..., 1:, :] - x[..., :-1, :]
+    c = g[..., :, 1:] - g[..., :, :-1]
+    d = x[..., :, 1:] - x[..., :, :-1]
+    return (a - b).norm(1) + (c - d).norm(1)
+

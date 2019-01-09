@@ -5,48 +5,39 @@ import torch.nn as nn
 import torch.nn.functional as F
 from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
+from config import o
 
 
 class ModelStage(nn.Module):
-    def __init__(self, stage=1, lam=1.0):
+    def __init__(self, stage=1):
         super(ModelStage, self).__init__()
-        penalty_num = 63
-        self.channel = channel = filter_num = 24
+        penalty_num = o.penalty_num
+        self.depth = o.depth
+        self.channel = channel = filter_num = o.channel
         self.filter_size = filter_size = 5
         self.basis = torch.tensor(gen_dct2(filter_size), dtype=torch.float)
         self.lam = torch.tensor(0 if stage == 1 else log(0.1), dtype=torch.float)
-        # self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
-        # self.weight = torch.randn(1, filter_num, penalty_num, 1, 1) * 0.1
-        mat = loadmat("data/w0_63_means.mat")
-        self.mean = torch.tensor(mat["means"], dtype=torch.float).view(1, 1, penalty_num, 1, 1)
-
-        # activation weight 1x24x63x1x1
-        self.actw = torch.tensor(mat["w"], dtype=torch.float).view(1, 1, penalty_num, 1, 1)
+        self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
+        self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
-        self.actw = self.actw.repeat(1, filter_num, 1, 1, 1)
-        self.actw = [self.actw.clone().detach(), self.actw]
-        # conv filter and bias
+        self.actw = [torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)]
         self.filter = [
             torch.randn(channel, 1, filter_size, filter_size),
-            torch.randn(channel, channel, filter_size, filter_size),
+            *(
+                torch.randn(channel, channel, filter_size, filter_size)
+                for i in range(self.depth - 1)
+            ),
         ]
-        # self.filter = [
-        #     torch.eye(filter_size ** 2 - 1, channel * 1),
-        #     torch.eye(filter_size ** 2 - 1, channel * channel),
-        # ]
-        self.bias = [torch.randn(channel), torch.randn(channel)]
-
+        self.bias = [torch.randn(channel) for i in range(self.depth)]
         self.pad = nn.ReplicationPad2d(filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(filter_size // 2))
-
         self.lam = parameter(self.lam)
-        self.bias = parameter(self.bias)
-        self.filter = parameter(self.filter)
-        self.actw = parameter(self.actw)
+        self.bias = parameter(self.bias, o.bias_scale)
+        self.filter = parameter(self.filter, o.filter_scale)
+        self.actw = parameter(self.actw, o.actw_scale)
 
     # Bx1xHxW
     def forward(self, inputs):
-        # y=x^0
         x, y, lam = inputs
         x *= 255
         y *= 255
@@ -54,29 +45,18 @@ class ModelStage(nn.Module):
         self.mean = self.mean.to(x.device)
         self.basis = self.basis.to(x.device)
         f = self.filter
-        # f = [
-        #     (self.basis @ i)
-        #     .permute(1, 0)
-        #     .view(self.channel, -1, self.filter_size, self.filter_size)
-        #     for i in f
-        # ]
-        f = [
-            i / i.view(i.shape[0] * i.shape[1], -1).norm(dim=1).view(*i.shape[:2], 1, 1) for i in f
-        ]
-        x = c1 = F.conv2d(self.pad(x), f[0])
-
-        # x = (((x.unsqueeze(2) - self.mean).pow(2) / -200).exp() * self.actw[0]).sum(2)
-        # x = F.conv2d(self.pad(x), f[1])
-
-        x = (((x.unsqueeze(2) - self.mean).pow(2) / -200).exp() * self.actw[1]).sum(2)
-
-        # x = self.crop(F.conv_transpose2d(x, f[1]))
-        # c1=c1.unsqueeze(2)
-        # x = x * (
-        #     ((c1 - self.mean).pow(2) / -200).exp() * (c1 - self.mean) / -100 * self.actw[0]
-        # ).sum(2)
-
-        x = self.crop(F.conv_transpose2d(x, f[0]))
+        t = []
+        for i in range(self.depth):
+            x = F.conv2d(self.pad(x), f[i], self.bias[i])
+            t.append(x)
+            x = (((x.unsqueeze(2) - self.mean).pow(2) / -200).exp() * self.actw[i]).sum(2)
+        x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
+        for i in reversed(range(self.depth - 1)):
+            c1 = t[i].unsqueeze(2)
+            x = x * (
+                ((c1 - self.mean).pow(2) / -200).exp() * (c1 - self.mean) / -100 * self.actw[i]
+            ).sum(2)
+            x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
 

@@ -1,20 +1,34 @@
 ## dependency
 
-python3.4+ torch numpy skimage scipy matplotlib tqdm
+python3.4+ torch numpy skimage scipy matplotlib tqdm tensorboardX
 
-## prepare
+## dataset
 
 ```sh
-# download BSD500
+# BSD500
 wget https://github.com/tkkcc/tmp/releases/download/0.0.1/fdn1201_data.zip
 unzip -n fdn1201_data.zip
-# download Levin
+# Levin
 wget https://github.com/tkkcc/tmp/releases/download/0.0.1/LevinEtalCVPR09Data.rar
 unrar x LevinEtalCVPR09Data.rar data/
-# download Sun
+# Sun
 wget https://github.com/tkkcc/tmp/releases/download/0.0.1/input80imgs8kernels.zip
 unzip -n input80imgs8kernels.zip -d data/
+# TNRD 180+68
+wget "https://www.dropbox.com/s/8j6b880m6ddxtee/TNRD-Codes.zip?dl=0" -O
+unzip TNRD-Codes.zip
+mv TNRD-Codes/TrainingCodes4denoising/FoETrainingSets180 data/
+mv TNRD-Codes/TestCodes(denoising-deblocking-SR)/GaussianDenoising/68imgs data/
+# Waterloo Exploration 4744
+wget http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar
+unrar x exploration_database_and_code.rar
+mv exploration_database_and_code/pristine_images data/
+# Set 12
+wget https://github.com/tkkcc/tmp/releases/download/0.0.1/Set12.zip
+unzip -n Set12.zip -d data/
 ```
 
-[TNRD denoise data set](https://www.dropbox.com/s/8j6b880m6ddxtee/TNRD-Codes.zip?dl=0): FoETrainingSets180(400) for train,68imgs(68) for test
-
+## tensorboard
+```sh
+tensorboard --samples_per_plugin images=0 --logdir runs --port 40066 >/dev/null 2>&1&
+```

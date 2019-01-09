@@ -1,5 +1,19 @@
 from util import dotdict
-
-o = dict(model="FDN", device="cuda", batch_size=8, num_workers=0, epoch=50, lr=3e-3)
-# lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False
+from tensorboardX import SummaryWriter
+o = dict(
+    batch_size=8,
+    num_workers=0,
+    epoch=20,
+    lr=1e-3,
+    penalty_num=63,
+    depth=3,
+    channel=24,
+    bias_scale=0,
+    filter_scale=0.01,
+    actw_scale=0.01,
+    patch_size=80,
+    sigma=25,
+)
 o = dotdict(o)
+writer = SummaryWriter()
+# writer = SummaryWriter(comment="".join("_" + str(i) for i in o.values()))
