@@ -15,7 +15,6 @@ class ModelStage(nn.Module):
         self.depth = o.depth
         self.channel = channel = filter_num = o.channel
         self.filter_size = filter_size = 5
-        self.basis = torch.tensor(gen_dct2(filter_size), dtype=torch.float)
         self.lam = torch.tensor(0 if stage == 1 else log(0.1), dtype=torch.float)
         self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
@@ -35,6 +34,7 @@ class ModelStage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
+        # self.inf = nn.InstanceNorm2d(channel)
 
     # Bx1xHxW
     def forward(self, inputs):
@@ -43,7 +43,6 @@ class ModelStage(nn.Module):
         y *= 255
         xx = x
         self.mean = self.mean.to(x.device)
-        self.basis = self.basis.to(x.device)
         f = self.filter
         t = []
         for i in range(self.depth):
