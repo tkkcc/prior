@@ -15,7 +15,7 @@ unrar x LevinEtalCVPR09Data.rar data/
 wget https://github.com/tkkcc/tmp/releases/download/0.0.1/input80imgs8kernels.zip
 unzip -n input80imgs8kernels.zip -d data/
 # TNRD 180+68
-wget "https://www.dropbox.com/s/8j6b880m6ddxtee/TNRD-Codes.zip?dl=0" -O
+wget https://www.dropbox.com/s/8j6b880m6ddxtee/TNRD-Codes.zip
 unzip TNRD-Codes.zip
 mv TNRD-Codes/TrainingCodes4denoising/FoETrainingSets180 data/
 mv TNRD-Codes/TestCodes(denoising-deblocking-SR)/GaussianDenoising/68imgs data/
