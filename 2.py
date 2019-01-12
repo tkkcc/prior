@@ -6,10 +6,9 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR
 from tqdm import tqdm
 from tqdm import trange
-from config import o
-from config import writer as w
+from config import o, w
 from data import *
-from model import ModelStack
+from model import Model
 from util import change_key, isnan, load, log, mean, npsnr, show, l2, grad_diff
 import json
 
@@ -18,7 +17,14 @@ w.add_text("config", json.dumps(o))
 w.add_text("extra", "WED4744 npsnr fixlr allrandninit bias")
 # m:model to train, p:pre models
 def train(m, p=None):
-    d = DataLoader(WED4744(), o.batch_size, num_workers=o.num_workers, shuffle=True, drop_last=True)
+    d = DataLoader(
+        WED4744(),
+        o.batch_size,
+        num_workers=o.num_workers,
+        pin_memory=True,
+        shuffle=True,
+        drop_last=True,
+    )
     optimizer = Adam(m.parameters(), lr=o.lr)
     # scheduler = ReduceLROnPlateau(optimizer, factor=0.3, cooldown=0, patience=10)
     scheduler = MultiStepLR(optimizer, milestones=[100], gamma=0.333)
@@ -52,16 +58,16 @@ def train(m, p=None):
 # greedy train the i stage
 def greedy(stage=1):
     p = None
-    m = DataParallel(ModelStack(1)).to(o.device)
+    m = DataParallel(Model(1)).to(o.device)
     # load(m, "save/e.tar")
     if stage > 1:
-        p = DataParallel(ModelStack(stage - 1)).to(o.device)
+        p = DataParallel(Model(stage - 1)).to(o.device)
         load(p, "save/e.tar")
         p.eval()
         p.stage = stage - 1
         # init stage using stage-1
-        a = change_key(p.module.m[-1].state_dict(), lambda x: f"m.0.{x}")
-        load(m, a)
+        # a = change_key(p.module.m[-1].state_dict(), lambda x: f"m.0.{x}")
+        # load(m, a)
     train(m, p)
     # concat and save
     a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
@@ -83,8 +89,8 @@ def test(m, write=False):
             loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
-            # if write:
-            #     w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
+            if write:
+                w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
         return mean(losss)
 
 
@@ -92,7 +98,7 @@ if __name__ == "__main__":
     print(o)
     m = greedy(o.stage)
     print("========test==========")
-    # m = ModelStack(1).to(o.device)
+    # m = Model(1).to(o.device)
     # load(m, "save/159.tar")
     # load(m, "save/01-10g_tnrd159+200_0.5e-3.tar")
     # test(m)

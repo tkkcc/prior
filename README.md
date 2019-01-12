@@ -18,7 +18,7 @@ unzip -n input80imgs8kernels.zip -d data/
 wget https://www.dropbox.com/s/8j6b880m6ddxtee/TNRD-Codes.zip
 unzip TNRD-Codes.zip
 mv TNRD-Codes/TrainingCodes4denoising/FoETrainingSets180 data/
-mv TNRD-Codes/TestCodes(denoising-deblocking-SR)/GaussianDenoising/68imgs data/
+mv "TNRD-Codes/TestCodes(denoising-deblocking-SR)/GaussianDenoising/68imgs" data/
 # Waterloo Exploration 4744
 wget http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar
 unrar x exploration_database_and_code.rar

@@ -1,23 +1,26 @@
 #!/bin/false
+function c
+    sed -ri 's/(.*'$argv[1]'=).*,/\1'$argv[2]',/' $argv[3]
+end
 c channel 24 config.py
 python 2.py
 c channel 48 config.py
 python 2.py
 c channel 64 config.py
 python 2.py
-c channel 96 config.py
-python 2.py
+#c channel 96 config.py
+#python 2.py
 c channel 24 config.py
 
-c penalty_num 47 config.py 
+c penalty_num 47 config.py
 python 2.py
-c penalty_num 35 config.py 
+c penalty_num 35 config.py
 python 2.py
-c penalty_num 23 config.py 
+c penalty_num 23 config.py
 python 2.py
-c penalty_num 7 config.py 
+c penalty_num 7 config.py
 python 2.py
-c penalty_num 3 config.py 
+c penalty_num 3 config.py
 python 2.py
 c penalty_num 63 config.py
 
