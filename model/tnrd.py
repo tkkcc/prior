@@ -15,10 +15,12 @@ class ModelStage(nn.Module):
         self.depth = o.depth
         self.channel = channel = filter_num = o.channel
         self.filter_size = filter_size = 5
-        self.lam = torch.tensor(0 if stage == 1 else log(0.1), dtype=torch.float)
+        # self.lam = torch.tensor(0 if stage == 1 else np.log(0.1), dtype=torch.float)
+        self.lam = torch.tensor(0, dtype=torch.float)
         self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
-        self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
+        # self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
+        self.actw *= 10
         self.actw = [torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)]
         self.filter = [
             torch.randn(channel, 1, filter_size, filter_size),
