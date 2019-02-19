@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import torch
 import torch.nn.functional as F
 from torch.nn import DataParallel
@@ -14,7 +15,6 @@ import json
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
-w.add_text("extra", "WED4744 npsnr fixlr allrandninit bias")
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
@@ -27,7 +27,7 @@ def train(m, p=None):
     )
     optimizer = Adam(m.parameters(), lr=o.lr)
     # scheduler = ReduceLROnPlateau(optimizer, factor=0.3, cooldown=0, patience=10)
-    scheduler = MultiStepLR(optimizer, milestones=[100], gamma=0.333)
+    scheduler = MultiStepLR(optimizer, milestones=[100], gamma=0.1)
     num = 0
     for i in trange(o.epoch, desc="epoch", mininterval=1):
         scheduler.step()
@@ -57,27 +57,31 @@ def train(m, p=None):
 # greedy train the i stage
 def greedy(stage=1):
     p = None
-    m = DataParallel(Model(1)).to(o.device)
-    # load(m, "save/e.tar")
+    m = DataParallel(Model([stage])).to(o.device)
     if stage > 1:
         p = DataParallel(Model(stage - 1)).to(o.device)
-        load(p, "save/e.tar")
+        load(p, "save/g.tar")
         p.eval()
         p.stage = stage - 1
-        # init stage using stage-1
-        a = change_key(p.module.m[-1].state_dict(), lambda x: f"m.0.{x}")
-        load(m, a)
+        if o.init_from_last:
+            a = change_key(p.module.m[-1].state_dict(), lambda x: f"m.0.{x}")
+            load(m, a)
     train(m, p)
     # concat and save
     a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
     if p:
         a.update(p.module.state_dict())
-    torch.save(a, "save/e.tar")
+    torch.save(a, "save/g.tar")
     return m
 
+def joint(stage=1):
+    m = DataParallel(Model(stage)).to(o.device)
+    load(m, "save/g.tar")
+    train(m)
+    torch.save(m.module.state_dict(), "save/f.tar")
+    return m
 
 def test(m, p=None, write=False):
-    # m.eval()
     with torch.no_grad():
         d = DataLoader(TNRD68(), 1)
         losss = []
@@ -96,9 +100,23 @@ def test(m, p=None, write=False):
 
 if __name__ == "__main__":
     print(o)
-    m = greedy(o.stage)
-    print("========test==========")
-    # m = Model(1).to(o.device)
-    # load(m, "save/e.tar")
-    # load(m, "save/01-10g_tnrd159+200_0.5e-3.tar")
-    # print(test(m))
+    locals()[o.train](o.stage)
+    # test()
+    # joint(o.stage)
+    # finetuned(1)
+    # m = greedy(o.stage)
+    # print("========test==========")
+    # p = Model(1).to(o.device)
+    # load(p ,"save/g_initliketnrd.tar")
+    # m = Model([2]).to(o.device)
+    # d = torch.load('save/g_initliketnrd.tar')
+    # from collections import OrderedDict
+    # a = OrderedDict()
+    # s = m.state_dict()
+    # for k in s:
+    #     a[k] = d['m.1'+k[3:]]
+    # (m if hasattr(m, "load_state_dict") else m.module).load_state_dict(a)
+    # p= None
+    # m = Model(2).to(o.device)
+    # load(m ,"save/g_initliketnrd.tar")
+    # print(test(m,p))

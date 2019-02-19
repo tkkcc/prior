@@ -3,6 +3,7 @@ from tensorboardX import SummaryWriter
 
 o = dict(
     model="tnrd",
+    train="greedy",
     stage=2,
     batch_size=8,
     num_workers=4,
@@ -17,6 +18,9 @@ o = dict(
     patch_size=80,
     sigma=25,
     sigma_range=False,
+    mem_infinity=True,
+    # greedy train, init current(n) stage using n-1 stage, else init like TNRD
+    init_from_last=True,
 )
 o = dotdict(o)
 w = SummaryWriter()

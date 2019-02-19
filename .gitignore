@@ -17,4 +17,4 @@ __pycache__/
 /0*.py
 /GreedyTraining_5x5_400_180x180_sigma=25.mat
 /runs/
-/tmp/
+/tmp*
