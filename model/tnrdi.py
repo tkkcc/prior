@@ -1,17 +1,16 @@
-# tnrd
+# add another influential
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.checkpoint import checkpoint_sequential
-from torch.utils.checkpoint import checkpoint
-
 from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
 
+
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
+        assert o.depth == 2
         super(ModelStage, self).__init__()
         penalty_num = o.penalty_num
         self.depth = o.depth
@@ -22,8 +21,11 @@ class ModelStage(nn.Module):
         self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
-        # self.actw *= 10
         self.actw = [torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)]
+
+        self.actwi = torch.randn(1, filter_num, penalty_num, 1, 1)
+        self.actwi *= 10
+
         self.filter = [
             torch.randn(channel, 1, filter_size, filter_size),
             *(
@@ -38,9 +40,9 @@ class ModelStage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
+        self.actwi = parameter(self.actwi, o.actw_scale)
         # self.inf = nn.InstanceNorm2d(channel)
 
-    # checkpoint a function
     def act(self, x, w, gradient=False):
         if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
             x = x.unsqueeze(2)
@@ -58,13 +60,14 @@ class ModelStage(nn.Module):
         return x
 
     # Bx1xHxW
-    def forward(self, *inputs):
+    def forward(self, inputs):
         x, y, lam = inputs
         x = x * 255
         y = y * 255
         xx = x
         self.mean = self.mean.to(x.device)
         f = self.filter
+
         t = []
         for i in range(self.depth):
             x = F.conv2d(self.pad(x), f[i], self.bias[i])
@@ -74,6 +77,7 @@ class ModelStage(nn.Module):
         for i in reversed(range(self.depth - 1)):
             c1 = t[i]
             x = x * self.act(c1, self.actw[i], True)
+            x += self.act(t[0], self.actwi)
             x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
@@ -93,18 +97,8 @@ class ModelStack(nn.Module):
         # tnrd pad and crop
         # x^t, y=x^0, s
         d[1] = self.pad(d[1])
-        # d[0].requires_grad=True
-        # d[1].requires_grad=True
         for i in self.m:
             d[0] = self.pad(d[0])
-            if o.checkpoint:
-                d[2].requires_grad=True
-                d[0] = checkpoint(i, *d)
-            else:
-                d[0] = i(*d)
+            d[0] = i(d)
             d[0] = self.crop(d[0])
         return d[0]
-        # d[0].requires_grad=True
-        # d[1].requires_grad=True
-        # d[2].requires_grad=True
-        # return checkpoint_sequential(self.m,4,*d)

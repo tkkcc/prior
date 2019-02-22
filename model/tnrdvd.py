@@ -3,12 +3,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.checkpoint import checkpoint_sequential
-from torch.utils.checkpoint import checkpoint
-
 from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
+
 
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
@@ -40,7 +38,6 @@ class ModelStage(nn.Module):
         self.actw = parameter(self.actw, o.actw_scale)
         # self.inf = nn.InstanceNorm2d(channel)
 
-    # checkpoint a function
     def act(self, x, w, gradient=False):
         if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
             x = x.unsqueeze(2)
@@ -58,7 +55,7 @@ class ModelStage(nn.Module):
         return x
 
     # Bx1xHxW
-    def forward(self, *inputs):
+    def forward(self, inputs):
         x, y, lam = inputs
         x = x * 255
         y = y * 255
@@ -75,6 +72,7 @@ class ModelStage(nn.Module):
             c1 = t[i]
             x = x * self.act(c1, self.actw[i], True)
             x = self.crop(F.conv_transpose2d(x, f[i]))
+        
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
 
@@ -93,18 +91,8 @@ class ModelStack(nn.Module):
         # tnrd pad and crop
         # x^t, y=x^0, s
         d[1] = self.pad(d[1])
-        # d[0].requires_grad=True
-        # d[1].requires_grad=True
         for i in self.m:
             d[0] = self.pad(d[0])
-            if o.checkpoint:
-                d[2].requires_grad=True
-                d[0] = checkpoint(i, *d)
-            else:
-                d[0] = i(*d)
+            d[0] = i(d)
             d[0] = self.crop(d[0])
         return d[0]
-        # d[0].requires_grad=True
-        # d[1].requires_grad=True
-        # d[2].requires_grad=True
-        # return checkpoint_sequential(self.m,4,*d)

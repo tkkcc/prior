@@ -18,3 +18,4 @@ __pycache__/
 /GreedyTraining_5x5_400_180x180_sigma=25.mat
 /runs/
 /tmp*
+/.*

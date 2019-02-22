@@ -2,10 +2,18 @@
 function c
     sed -ri 's/(.*'$argv[1]'=).*,/\1'$argv[2]',/' config.py
 end
+c model \"tnrd\"
+c stage 1
+c lr 1e-4
+c penalty_num 63
+./2.py
+#c model tnrdi
+#./2.py
+exit
 #c stage 1
 #python 2.py
-c stage 2
-python 2.py
+#c stage 2
+#python 2.py
 c stage 3
 python 2.py
 c stage 4

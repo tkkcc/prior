@@ -48,7 +48,7 @@ def train(m, p=None):
             num += 1
             w.add_scalar("loss", loss, num)
             w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
-        psnr = test(m, p)
+        psnr = _test(m, p)
         w.add_scalar("psnr", psnr, i)
         for name, param in m.named_parameters():
             w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
@@ -60,7 +60,7 @@ def greedy(stage=1):
     m = DataParallel(Model([stage])).to(o.device)
     if stage > 1:
         p = DataParallel(Model(stage - 1)).to(o.device)
-        load(p, "save/g.tar")
+        load(p, o.load)
         p.eval()
         p.stage = stage - 1
         if o.init_from_last:
@@ -71,19 +71,30 @@ def greedy(stage=1):
     a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
     if p:
         a.update(p.module.state_dict())
-    torch.save(a, "save/g.tar")
+    torch.save(a, o.save)
     return m
+
 
 def joint(stage=1):
     m = DataParallel(Model(stage)).to(o.device)
-    load(m, "save/g.tar")
+    load(m, o.load)
     train(m)
-    torch.save(m.module.state_dict(), "save/f.tar")
+    torch.save(m.module.state_dict(), o.save)
     return m
 
-def test(m, p=None, write=False):
+
+def test(stage=1):
+    m = DataParallel(Model(stage)).to(o.device)
+    load(m, o.load)
+    m = _test(m, save=True)
+    w.add_scalar("average", m, 0)
+    print(m)
+
+
+def _test(m, p=None, save=False):
     with torch.no_grad():
-        d = DataLoader(TNRD68(), 1)
+        d = globals()[o.test_set]
+        d = DataLoader(d(), 1)
         losss = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
@@ -93,14 +104,15 @@ def test(m, p=None, write=False):
             loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
-            if write:
+            if save:
+                w.add_scalar("result", losss[-1], index)
                 w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
         return mean(losss)
 
 
 if __name__ == "__main__":
     print(o)
-    locals()[o.train](o.stage)
+    locals()[o.run](o.stage)
     # test()
     # joint(o.stage)
     # finetuned(1)

@@ -13,7 +13,10 @@ from util import rand_crop, show, augment
 from config import o
 
 random.seed(0)
-
+np.random.seed(0)
+torch.manual_seed(0)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 def _denoise(path, test=False, sigma=None):
     class C(Dataset):
@@ -50,4 +53,5 @@ WED4744 = _f(Path(f"data/pristine_images/").glob("*"))
 # test
 TNRD68 = _f(sorted(Path(f"data/68imgs/").glob("*")), test=True, sigma=25)
 TNRD68_03 = _f(Path(f"data/68imgs/").glob("test003*"), test=True, sigma=25)
-
+Set12 = _f(sorted(Path(f"data/Set12/").glob("*")), test=True, sigma=25)
+BSD68 = _f(sorted(Path(f"data/BSD68/").glob("*")), test=True, sigma=25)
