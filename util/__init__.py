@@ -14,6 +14,7 @@ from math import isnan
 from collections import OrderedDict
 from tensorboardX import SummaryWriter
 from time import sleep
+from pathlib import Path
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -193,11 +194,13 @@ def log(a, name="", **arg):
     else:
         p(name, f"{a:.3f}")
 
+
 def mse(a, b, reduction="mean"):
-    assert a.shape == b.shape and a.dim()==4
-    a = (a - b).pow(2).mean(2).mean(2)
-    return 
-    
+    assert a.shape == b.shape and a.dim() == 4
+    a = (a - b).pow(2).mean(2).mean(2).mean(2)
+    return a.sum() if reduction == "sum" else a.mean()
+
+
 # negative psnr, [B]xCxHxW
 def npsnr(a, b, reduction="mean"):
     assert a.shape == b.shape
@@ -211,6 +214,7 @@ def npsnr(a, b, reduction="mean"):
     s = ((a - b).pow(2).sum(d) / l).log10()
     s = 10 * (s.mean() if reduction == "mean" else s.sum())
     return s
+
 
 # align to get max psnr, [1]xCxHxW
 def npsnr_align_max(a, b):
@@ -240,11 +244,15 @@ def npsnr_align_max(a, b):
 # d:path or OrdesredDict
 def load(m, d):
     if type(d) is not OrderedDict:
+        if not Path(d).exists():
+            return
         d = torch.load(d)
     a = OrderedDict()
     s = m.state_dict()
     for k in s:
-        a[k] = d[k] if k in d else d[k[7:]] if k.startswith("module.") else d["module." + k]
+        a[k] = (
+            d.get(k) or (d.get(k[7:]) if k.startswith("module.") else d.get("module." + k)) or s[k]
+        )
     (m if hasattr(m, "load_state_dict") else m.module).load_state_dict(a)
 
 
@@ -256,10 +264,9 @@ def change_key(a, f):
 
 
 def parameter(x, scale=1):
-    x = x*scale
     if type(x) is not list:
-        return nn.Parameter(x)
-    return nn.ParameterList([nn.Parameter(i) for i in x])
+        return nn.Parameter(x*scale)
+    return nn.ParameterList([nn.Parameter(i*scale) for i in x])
 
 
 # for numpy, from ffdnet-pytorch
@@ -275,13 +282,14 @@ def l2(g, x):
     return (g - x).pow(2).sum()
 
 
-#  horizontal and vertical grad diff norm 1 sum
-def grad_diff(g, x):
+#  horizontal and vertical grad diff norm sum
+def grad_diff(g, x, norm=1):
     a = g[..., 1:, :] - g[..., :-1, :]
     b = x[..., 1:, :] - x[..., :-1, :]
     c = g[..., :, 1:] - g[..., :, :-1]
     d = x[..., :, 1:] - x[..., :, :-1]
-    return (a - b).norm(1) + (c - d).norm(1)
+    return (a - b).norm(norm) + (c - d).norm(norm)
+
 
 # min-max
 def normalize(x):

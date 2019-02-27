@@ -18,17 +18,21 @@ torch.manual_seed(0)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
+
 def _denoise(path, test=False, sigma=None):
     class C(Dataset):
         def __init__(self):
             d = path
             d = Path(d) if type(d) is str else d
-            self.d = [i for i in d if i.is_file()]
+            d = [imread(i) / 255 for i in d if i.is_file()]
+            d = [rgb2gray(i).astype(np.float32) for i in d]
+            self.d = d
 
         def __getitem__(self, i):
             # g = imread(random.choice(self.d)) / 255
-            g = imread(self.d[i]) / 255
-            g = rgb2gray(g).astype(np.float32)
+            # g = imread(self.d[i]) / 255
+            # g = rgb2gray(g).astype(np.float32)
+            g = random.choice(self.d)
             g = augment(rand_crop(g, o.patch_size)) if not test else g
             g = torch.from_numpy(g).view(1, *g.shape)
             s = sigma or o.sigma if test else o.sigma * (random.random() if o.sigma_range else 1)
