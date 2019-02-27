@@ -1,14 +1,34 @@
-#!/bin/false
+#!/usr/bin/env fish
 function c
-    sed -ri 's/(.*'$argv[1]'=).*,/\1'$argv[2]',/' config.py
+    sed -ri 's|^(\s*'$argv[1]'=).*,|\1'$argv[2]',|' config.py
 end
-c model \"tnrd\"
+c lr 1e-3
+c run \"greedy\"
 c stage 1
+c checkpoint False
+# c model \"tnrdi\"
+# c save \"save/g1_tnrdi.tar\"
+# python 2.py
+# c model \"tnrd3x3x2\"
+# c save \"save/g1_tnrd3x3x2.tar\"
+# python 2.py
+c model \"tnrd\"
+c save \"save/g1_tnrdre.tar\"
+#python 2.py
+c filter_size 7
+c save \"save/g1_tnrd7x7.tar\"
+python 2.py
+c checkpoint True
+c filter_size 5
 c lr 1e-4
-c penalty_num 63
-./2.py
-#c model tnrdi
-#./2.py
+c stage 3
+c load \"save/j2.tar\"
+c save \"save/g3_initwithpre_j2.tar\"
+python 2.py
+c run joint
+c load \"save/g3_initwithpre_j2.tar\"
+c save \"save/j3_g3_initwithpre_j2.tar\"
+python 2.py
 exit
 #c stage 1
 #python 2.py

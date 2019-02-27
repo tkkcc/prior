@@ -10,7 +10,7 @@ from tqdm import trange
 from config import o, w
 from data import *
 from model import Model
-from util import change_key, isnan, load, log, mean, npsnr, show, l2, grad_diff
+from util import change_key, isnan, load, mean, npsnr, show, nssim, normalize,sleep
 import json
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -40,14 +40,16 @@ def train(m, p=None):
                     x = p([x, y, s])
             out = m([x, y, s])
             loss = npsnr(g, out, reduction="sum")
+            # loss = nssim(g, out, reduction="sum")
             # loss = l2(g, out) + grad_diff(g, out)
             loss.backward()
             optimizer.step()
             loss = loss.detach().item()
             assert not isnan(loss)
             num += 1
+
             w.add_scalar("loss", loss, num)
-            w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
+            # w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
         psnr = _test(m, p)
         w.add_scalar("psnr", psnr, i)
         for name, param in m.named_parameters():
@@ -85,9 +87,9 @@ def joint(stage=1):
 
 def test(stage=1):
     m = DataParallel(Model(stage)).to(o.device)
-    load(m, o.load)
+    # load(m, o.load)
     m = _test(m, save=True)
-    w.add_scalar("average", m, 0)
+    w.add_text("average", str(m), 0)
     print(m)
 
 
@@ -98,15 +100,22 @@ def _test(m, p=None, save=False):
         losss = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
+            # assert g.dim() == 4
+            # n = y - g
+            # w.add_image("gt", normalize(g[0]), 0)
+            # w.add_image("noise", normalize(n[0]), 0)
+            # sleep(1)
+            # return
             x = y.clone().detach()
             x = p([x, y, s]) if p else x
             out = m([x, y, s])
+            # w.add_image("noise-d1", normalize((g-out)[0]), 0)
             loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
             if save:
                 w.add_scalar("result", losss[-1], index)
-                w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
+                # w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
         return mean(losss)
 
 

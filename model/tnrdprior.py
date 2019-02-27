@@ -1,4 +1,4 @@
-# tnrd
+# change k2 to 5x5x64x1, also rho_2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,8 +10,10 @@ from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
 
+
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
+        assert o.depth == 2
         super(ModelStage, self).__init__()
         penalty_num = o.penalty_num
         self.depth = o.depth
@@ -23,15 +25,15 @@ class ModelStage(nn.Module):
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
         # self.actw *= 10
-        self.actw = [torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)]
+        self.actw = [
+            torch.randn(1, filter_num, penalty_num, 1, 1),
+            torch.randn(1, 1, penalty_num, 1, 1),
+        ]
         self.filter = [
             torch.randn(channel, 1, filter_size, filter_size),
-            *(
-                torch.randn(channel, channel, filter_size, filter_size)
-                for i in range(self.depth - 1)
-            ),
+            torch.randn(1, channel, filter_size, filter_size),
         ]
-        self.bias = [torch.randn(channel) for i in range(self.depth)]
+        self.bias = [torch.randn(channel),torch.randn(1)]
         self.pad = nn.ReplicationPad2d(filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(filter_size // 2))
         self.lam = parameter(self.lam)
@@ -98,7 +100,7 @@ class ModelStack(nn.Module):
         for i in self.m:
             d[0] = self.pad(d[0])
             if o.checkpoint:
-                d[2].requires_grad=True
+                d[2].requires_grad = True
                 d[0] = checkpoint(i, *d)
             else:
                 d[0] = i(*d)

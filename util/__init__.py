@@ -8,11 +8,12 @@ import random
 from scipy.signal import convolve2d
 from .gen_kernel import blurkernel_synthesis as gen_kernel
 from .gen_dct2 import gen_dct2
+from .ssim import nssim
 from numpy import mean
 from math import isnan
 from collections import OrderedDict
 from tensorboardX import SummaryWriter
-
+from time import sleep
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -192,7 +193,11 @@ def log(a, name="", **arg):
     else:
         p(name, f"{a:.3f}")
 
-
+def mse(a, b, reduction="mean"):
+    assert a.shape == b.shape and a.dim()==4
+    a = (a - b).pow(2).mean(2).mean(2)
+    return 
+    
 # negative psnr, [B]xCxHxW
 def npsnr(a, b, reduction="mean"):
     assert a.shape == b.shape
@@ -206,7 +211,6 @@ def npsnr(a, b, reduction="mean"):
     s = ((a - b).pow(2).sum(d) / l).log10()
     s = 10 * (s.mean() if reduction == "mean" else s.sum())
     return s
-
 
 # align to get max psnr, [1]xCxHxW
 def npsnr_align_max(a, b):
@@ -252,9 +256,10 @@ def change_key(a, f):
 
 
 def parameter(x, scale=1):
+    x = x*scale
     if type(x) is not list:
         return nn.Parameter(x)
-    return nn.ParameterList([nn.Parameter(i * scale) for i in x])
+    return nn.ParameterList([nn.Parameter(i) for i in x])
 
 
 # for numpy, from ffdnet-pytorch
@@ -278,3 +283,12 @@ def grad_diff(g, x):
     d = x[..., :, 1:] - x[..., :, :-1]
     return (a - b).norm(1) + (c - d).norm(1)
 
+# min-max
+def normalize(x):
+    min_v = torch.min(x)
+    range_v = torch.max(x) - min_v
+    if range_v > 0:
+        normalised = (x - min_v) / range_v
+    else:
+        normalised = torch.zeros(x.size())
+    return normalised

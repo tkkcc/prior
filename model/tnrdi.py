@@ -7,7 +7,8 @@ from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
 
-
+from torch.utils.checkpoint import checkpoint_sequential
+from torch.utils.checkpoint import checkpoint
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
         assert o.depth == 2
@@ -60,7 +61,7 @@ class ModelStage(nn.Module):
         return x
 
     # Bx1xHxW
-    def forward(self, inputs):
+    def forward(self, *inputs):
         x, y, lam = inputs
         x = x * 255
         y = y * 255
@@ -94,11 +95,15 @@ class ModelStack(nn.Module):
         self.stage = stage
 
     def forward(self, d):
-        # tnrd pad and crop
-        # x^t, y=x^0, s
         d[1] = self.pad(d[1])
+        # d[0].requires_grad=True
+        # d[1].requires_grad=True
         for i in self.m:
             d[0] = self.pad(d[0])
-            d[0] = i(d)
+            if o.checkpoint:
+                d[2].requires_grad=True
+                d[0] = checkpoint(i, *d)
+            else:
+                d[0] = i(*d)
             d[0] = self.crop(d[0])
         return d[0]
