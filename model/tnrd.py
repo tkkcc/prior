@@ -95,6 +95,7 @@ class ModelStack(nn.Module):
         d[1] = self.pad(d[1])
         # d[0].require                                                                   _grad=True
         # d[1].requires_grad=True
+        t=[]
         for i in self.m:
             d[0] = self.pad(d[0])
             if o.checkpoint:
@@ -103,7 +104,8 @@ class ModelStack(nn.Module):
             else:
                 d[0] = i(*d)
             d[0] = self.crop(d[0])
-        return d[0]
+            t.append(d[0])
+        return t
         # d[0].requires_grad=True
         # d[1].requires_grad=True
         # d[2].requires_grad=True

@@ -16,6 +16,7 @@ from tensorboardX import SummaryWriter
 from time import sleep
 from pathlib import Path
 
+
 class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
@@ -195,7 +196,8 @@ def log(a, name="", **arg):
         p(name, f"{a:.3f}")
 
 
-def mse(a, b, reduction="mean"):
+# mean pow 2
+def m2e(a, b, reduction="mean"):
     assert a.shape == b.shape and a.dim() == 4
     a = (a - b).pow(2).mean(2).mean(2).mean(2)
     return a.sum() if reduction == "sum" else a.mean()
@@ -244,29 +246,36 @@ def npsnr_align_max(a, b):
 # d:path or OrdesredDict
 def load(m, d):
     if type(d) is not OrderedDict:
-        if not Path(d).exists():
-            return
+        # if not Path(d).exists():
+        #     return
         d = torch.load(d)
     a = OrderedDict()
     s = m.state_dict()
+    # cant use or operator
     for k in s:
-        a[k] = (
-            d.get(k) or (d.get(k[7:]) if k.startswith("module.") else d.get("module." + k)) or s[k]
-        )
+        a[k] = d.get(k)
+        if a[k] is None:
+            a[k] = d.get(k[7:]) if k.startswith("module.") else d.get("module." + k)
+        if a[k] is None:
+            a[k] = s[k]
+
     (m if hasattr(m, "load_state_dict") else m.module).load_state_dict(a)
 
 
 def change_key(a, f):
     b = OrderedDict()
     for i in a:
-        b[f(i)] = a[i]
+        k = f(i)
+        if k == None:
+            continue
+        b[k] = a[i]
     return b
 
 
 def parameter(x, scale=1):
     if type(x) is not list:
-        return nn.Parameter(x*scale)
-    return nn.ParameterList([nn.Parameter(i*scale) for i in x])
+        return nn.Parameter(x * scale)
+    return nn.ParameterList([nn.Parameter(i * scale) for i in x])
 
 
 # for numpy, from ffdnet-pytorch
