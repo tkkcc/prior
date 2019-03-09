@@ -3,26 +3,26 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrd",
+    model="tnrdi",
     run="greedy",
     # test_set="BSD68",
     # test_set="Set12",
     # test_set="TNRD68_03",
     test_set="TNRD68",
-    stage=1,
+    stage=2,
     batch_size=4,
-    num_workers=0,
-    epoch=150,
+    num_workers=4,
+    epoch=120,
     lr=1e-3,
     # lr*=0.1 when epoch=3, start from 0
-    milestones=[60, 120],
+    milestones=[100],
     join_loss=False,
     filter_size=5,
     penalty_num=63,
     depth=2,
     channel=64,
-    bias_scale=0,
-    filter_scale=0.01,
+    bias_scale=1,
+    filter_scale=.01,
     actw_scale=0.01,
     patch_size=80,
     sigma=25,
@@ -31,13 +31,13 @@ o = dict(
     # greedy train, init current(n) stage using n-1 stage, else init like TNRD
     # init_from = "last",
     # greedy train, init current(n) stage from load, for continue train
-    init_from="none",
+    init_from="last",
     checkpoint=False,
-    load="save/g1_tnrd5.tar",
+    load="save/g1_tnrdi.tar",
     # load="save/g1_tnrdprior.tar",
     # load="save/j4.tar",
     # save="save/g1_tddnrdi.tar",
-    save="save/g1_tnrd5.tar",
+    save="save/g2_tnrdi.tar",
 )
 o = dotdict(o)
 c = o.test_set if o.run == "test" else Path(o.save).stem
