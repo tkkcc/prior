@@ -12,6 +12,7 @@ from data import *
 from model import Model
 from util import change_key, isnan, load, mean, npsnr, show, nssim, normalize, sleep
 import json
+import time
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
@@ -103,28 +104,38 @@ def test(stage=1):
     m = DataParallel(Model(stage)).to(o.device)
     load(m, o.load)
     m.eval()
-    m = _test(m, save=True)
+    m = _test(m, benchmark=True)
     w.add_text("average", str(m), 0)
     print(m)
 
 
-def _test(m, p=None, save=False):
+def _test(m, p=None, benchmark=False):
     with torch.no_grad():
         d = globals()[o.test_set]
         d = DataLoader(d(), 1)
         losss = []
+        times = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
             x = y.clone().detach()
+            if benchmark:
+                torch.cuda.synchronize()
+                start = time.time()
             x = p([x, y, s])[-1] if p else x
-            out = m([x, y, s])
-            loss = npsnr(g, out[-1])
+            out = m([x, y, s])[-1]
+            if benchmark:
+                torch.cuda.synchronize()
+                times.append(time.time() - start)
+            loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
-            if save:
-                w.add_scalar("result", losss[-1], index)
+            # if benchmark:
+            #     w.add_scalar("result", losss[-1], index)
+            # w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
             del loss
             del out
+        if benchmark:
+            return mean(losss), mean(times)
         return mean(losss)
 
 

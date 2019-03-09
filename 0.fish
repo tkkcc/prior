@@ -5,13 +5,15 @@ end
 function r
     python 2.py
 end
-function test_set12
-    c model \"tnrdi\"
+function teston
+    c run \"test\"
+    c test_set \"$argv[1]\"
+    c model \"tnrd\"
     c lr 1e-3
-    c filter_scale .01
-    c filter_size 5
-    c init_from \"last\"
-    c checkpoint False
+    c stage 5
+    c load \"save/j5_tnrd5.tar\"
+    c checkpoint True
+    r
 end
 function tnrdi
     function i
@@ -504,8 +506,9 @@ function tnrd7
     c save \"save/j8_7.tar\"
     r
 end
+eval "$argv"
 #tnrd5
-tnrdi
+#tnrdi
 #mlp1x1
 #mlpsm
 #mlpelup
