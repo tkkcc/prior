@@ -1,27 +1,73 @@
 #!/usr/bin/env bash
+# ./0.sh teston Set12
 c(){
     sed -ri 's|^(\s*'$1'=).*,|\1'$2',|' config.py
 }
 r(){
     python 2.py
 }
-tnrdifn(){
+tnrdx(){
     i(){
-        c model \"tnrd\"
+        c model \"tnrdx\"
         c lr 1e-3
-        c patch_size 60
-        c filter_scale .01
+        c patch_size 80
+        c actw_scale 1
+        c bias_scale 1
+        c filter_scale 1
         c filter_size 5
         c run \"greedy\"
+        c channel 64
+        c depth 3
         c epoch 120
-        c milestones [100]
+        c milestones [90,110]
         c stage 1
         c init_from \"none\"
         c load \"save/g1_tnrd5.tar\"
-        c save \"save/g1_tnrd5.tar\"
+        c save \"save/g1_tnrdx3.tar\"
+        c checkpoint False
+        c test_set \"BSD68\"
+    }
+    i
+    r
+    i
+    return
+    c run \"greedy\"
+    c stage 2
+    c epoch 140
+    c milestones [100]
+    c init_from \"none\"
+    c load \"save/g1_tnrd5.tar\"
+    c save \"save/g2_tnrdifn.tar\"
+    r
+    i
+    c run \"joint\"
+    c stage 2
+    c epoch 60
+    c milestones [20,40]
+    c load \"save/g2_tnrdifn.tar\"
+    c save \"save/j2_tnrdifn.tar\"
+    r
+}
+tnrdifn(){
+    i(){
+        c model \"tnrdii\"
+        c lr 1e-3
+        c patch_size 80
+        c depth 2
+        c filter_size 5
+        c run \"greedy\"
+        c epoch 140
+        c milestones [100,130]
+        c stage 1
+        c init_from \"none\"
+        c load \"save/g1_tnrd5.tar\"
+        c save \"save/g1_tnrdii.tar\"
         c checkpoint False
         c test_set \"TNRD68\"
     }
+    i
+    r
+    return
     i
     c run \"greedy\"
     c stage 2

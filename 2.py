@@ -16,10 +16,12 @@ import time
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
+w.add_text("extra",'training dataset add ILSVRC12 ')
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
-        WED4744(),
+        # ILSVRC12(),
+        ConcatDataset((ILSVRC12(), WED4744())),
         o.batch_size,
         num_workers=o.num_workers,
         pin_memory=True,

@@ -10,6 +10,7 @@ from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
 
+
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
         super(ModelStage, self).__init__()
@@ -19,7 +20,7 @@ class ModelStage(nn.Module):
         self.filter_size = filter_size = o.filter_size
         self.lam = torch.tensor(0 if stage == 1 else np.log(0.1), dtype=torch.float)
         # self.lam = torch.tensor(0, dtype=torch.float)
-        self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1).to(o.deivce)
+        self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
         # self.actw *= 10
@@ -38,24 +39,56 @@ class ModelStage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
+        self.rbf = self.Rbf(False,False)
+        self.rbfg = self.Rbf(True,False)
+        # self.rbf = Rbf(False,False)
+        # self.rbf = Rbf(False,False)
         # self.inf = nn.InstanceNorm2d(channel)
-
-    # checkpoint a function
-    def act(self, x, w, gradient=False):
-        if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
+        #
+    # check if 'if' cause performance, the result: no
+    def Rbf(self,gradient=False, loop=False):
+        def rbf(x, w):
             x = x.unsqueeze(2)
-            if not gradient:
-                x = (((x - self.mean).pow(2) / -200).exp() * w).sum(2)
-            else:
-                x = (((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w).sum(2)
-        else:
-            # do on each channel
-            x, y = torch.empty_like(x), x
-            for j in range(x.shape[1]):
-                x[:, j, ...] = self.act(
-                    y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1), gradient
-                ).squeeze(1)
-        return x
+            return (((x - self.mean).pow(2) / -200).exp() * w).sum(2)
+
+        def rbfg(x, w):
+            x = x.unsqueeze(2)
+            return (((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w).sum(2)
+
+        def _rbfl(f):
+            def a(x,w):
+                x, y = torch.empty_like(x), x
+                for j in range(x.shape[1]):
+                    x[:, j, ...] = f(y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1)).squeeze(1)
+                return x
+            return a
+
+        rbfl = _rbfl(rbf)
+        rbfgl = _rbfl(rbfg)
+
+        if not gradient and not loop:
+            return rbf
+        if gradient and not loop:
+            return rbfg
+        if not gradient and loop:
+            return rbfl
+        return rbfgl
+    # checkpoint a function
+    # def act(self, x, w, gradient=False):
+    #     if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
+    #         x = x.unsqueeze(2)
+    #         if not gradient:
+    #             x = (((x - self.mean).pow(2) / -200).exp() * w).sum(2)
+    #         else:
+    #             x = (((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w).sum(2)
+    #     else:
+    #         # do on each channel
+    #         x, y = torch.empty_like(x), x
+    #         for j in range(x.shape[1]):
+    #             x[:, j, ...] = self.act(
+    #                 y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1), gradient
+    #             ).squeeze(1)
+    #     return x
 
     # Bx1xHxW
     def forward(self, *inputs):
@@ -63,16 +96,17 @@ class ModelStage(nn.Module):
         x = x * 255
         y = y * 255
         xx = x
+        self.mean = self.mean.to(x.device)
         f = self.filter
         t = []
         for i in range(self.depth):
             x = F.conv2d(self.pad(x), f[i], self.bias[i])
             t.append(x)
-            x = self.act(x, self.actw[i])
+            x = self.rbf(x, self.actw[i])
         x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
         for i in reversed(range(self.depth - 1)):
             c1 = t[i]
-            x = x * self.act(c1, self.actw[i], True)
+            x = x * self.rbfg(c1, self.actw[i])
             x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
@@ -94,11 +128,11 @@ class ModelStack(nn.Module):
         d[1] = self.pad(d[1])
         # d[0].require                                                                   _grad=True
         # d[1].requires_grad=True
-        t=[]
+        t = []
         for i in self.m:
             d[0] = self.pad(d[0])
             if o.checkpoint:
-                d[2].requires_grad=True
+                d[2].requires_grad = True
                 d[0] = checkpoint(i, *d)
             else:
                 d[0] = i(*d)

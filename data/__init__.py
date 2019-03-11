@@ -56,6 +56,7 @@ _f = _denoise
 BSD400 = _f(Path(f"data/BSR/BSDS500/data/images/").glob("t*/*"))
 TNRD400 = _f(Path(f"data/FoETrainingSets180/").glob("*"))
 WED4744 = _f(Path(f"data/pristine_images/").glob("*"))
+ILSVRC12 = _f(Path(f"data/ILSVRC12/").glob("*"))
 # test
 TNRD68 = _f(sorted(Path(f"data/68imgs/").glob("*")), test=True, sigma=25)
 TNRD68_03 = _f(Path(f"data/68imgs/").glob("test003*"), test=True, sigma=25)

@@ -1,4 +1,4 @@
-# tnrd
+# influential p1=p3
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,6 +10,7 @@ from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
 
+
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
         super(ModelStage, self).__init__()
@@ -19,11 +20,15 @@ class ModelStage(nn.Module):
         self.filter_size = filter_size = o.filter_size
         self.lam = torch.tensor(0 if stage == 1 else np.log(0.1), dtype=torch.float)
         # self.lam = torch.tensor(0, dtype=torch.float)
-        self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1).to(o.deivce)
+        self.mean = (
+            torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1).to(o.device)
+        )
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
         # self.actw *= 10
         self.actw = [torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)]
+        self.actwi = torch.randn(1, filter_num, penalty_num, 1, 1)
+        self.actwi *= 10
         self.filter = [
             torch.randn(channel, 1, filter_size, filter_size),
             *(
@@ -38,9 +43,12 @@ class ModelStage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
+
+        self.lam2 = torch.tensor(0).float()
+        self.lam2 = parameter(self.lam2)
+
         # self.inf = nn.InstanceNorm2d(channel)
 
-    # checkpoint a function
     def act(self, x, w, gradient=False):
         if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
             x = x.unsqueeze(2)
@@ -72,7 +80,9 @@ class ModelStage(nn.Module):
         x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
         for i in reversed(range(self.depth - 1)):
             c1 = t[i]
-            x = x * self.act(c1, self.actw[i], True)
+            p1 = self.act(c1, self.actw[i], True)
+            x = x * p1 + p1 * self.lam2.exp()
+            # x += self.act(c1, self.actw[i], True) * self.lam2.exp()
             x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
@@ -94,11 +104,11 @@ class ModelStack(nn.Module):
         d[1] = self.pad(d[1])
         # d[0].require                                                                   _grad=True
         # d[1].requires_grad=True
-        t=[]
+        t = []
         for i in self.m:
             d[0] = self.pad(d[0])
             if o.checkpoint:
-                d[2].requires_grad=True
+                d[2].requires_grad = True
                 d[0] = checkpoint(i, *d)
             else:
                 d[0] = i(*d)

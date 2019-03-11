@@ -309,3 +309,9 @@ def normalize(x):
     else:
         normalised = torch.zeros(x.size())
     return normalised
+
+def kaiming_normal(x):
+    if type(x) is not list:
+        return nn.init.kaiming_normal_(x)
+    for i in x:
+        nn.init.kaiming_normal_(i)
