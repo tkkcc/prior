@@ -16,13 +16,13 @@ import time
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
-w.add_text("extra",'training dataset add ILSVRC12 ')
+w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal")
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
         # ILSVRC12(),
         ConcatDataset((ILSVRC12(), WED4744())),
-        o.batch_size,
+        o.batch_size_,
         num_workers=o.num_workers,
         pin_memory=True,
         shuffle=True,
@@ -35,7 +35,6 @@ def train(m, p=None):
     for i in trange(o.epoch, desc="epoch", mininterval=1):
         scheduler.step()
         for j in tqdm(d, desc="batch", mininterval=1):
-            optimizer.zero_grad()
             g, y, s = [x.to(o.device) for x in j]
             x = y.clone().detach()
             if p:
@@ -50,13 +49,16 @@ def train(m, p=None):
                 loss = npsnr(g, out[-1], reduction="sum")
             # loss = nssim(g, out, reduction="sum")
             # loss = l2(g, out) + grad_diff(g, out)
+            num += 1
             loss.backward()
-            optimizer.step()
             loss = loss.detach().item()
             assert not isnan(loss)
-            num += 1
             w.add_scalar("loss", loss, num)
+            w.add_scalar("loss/-batch", -loss / o.batch_size_, num)
             w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
+            if num % (o.batch_size // o.batch_size_) == 0:
+                optimizer.step()
+                optimizer.zero_grad()
         m.eval()
         psnr = _test(m, p)
         m.train()
@@ -131,9 +133,9 @@ def _test(m, p=None, benchmark=False):
             loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
-            # if benchmark:
-            #     w.add_scalar("result", losss[-1], index)
-            # w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
+            if benchmark and o.save_image:
+                w.add_scalar("result", losss[-1], index)
+                w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
             del loss
             del out
         if benchmark:

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint_sequential
 from torch.utils.checkpoint import checkpoint
 
-from util import show, log, parameter, gen_dct2
+from util import show, log, parameter, gen_dct2, kaiming_normal
 from scipy.io import loadmat
 from config import o
 
@@ -36,6 +36,8 @@ class ModelStage(nn.Module):
                 for i in range(self.depth - 1)
             ),
         ]
+        kaiming_normal(self.filter)
+
         self.bias = [torch.randn(channel) for i in range(self.depth)]
         self.pad = nn.ReplicationPad2d(filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(filter_size // 2))
@@ -44,7 +46,7 @@ class ModelStage(nn.Module):
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
 
-        self.lam2 = torch.tensor(0).float()
+        self.lam2 = torch.tensor(255).float()
         self.lam2 = parameter(self.lam2)
 
         # self.inf = nn.InstanceNorm2d(channel)
@@ -81,7 +83,7 @@ class ModelStage(nn.Module):
         for i in reversed(range(self.depth - 1)):
             c1 = t[i]
             p1 = self.act(c1, self.actw[i], True)
-            x = x * p1 + p1 * self.lam2.exp()
+            x = p1 * (x + self.lam2)
             # x += self.act(c1, self.actw[i], True) * self.lam2.exp()
             x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
@@ -102,8 +104,6 @@ class ModelStack(nn.Module):
         # tnrd pad and crop
         # x^t, y=x^0, s
         d[1] = self.pad(d[1])
-        # d[0].require                                                                   _grad=True
-        # d[1].requires_grad=True
         t = []
         for i in self.m:
             d[0] = self.pad(d[0])

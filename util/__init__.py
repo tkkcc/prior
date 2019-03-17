@@ -206,11 +206,6 @@ def m2e(a, b, reduction="mean"):
 # negative psnr, [B]xCxHxW
 def npsnr(a, b, reduction="mean"):
     assert a.shape == b.shape
-    # t = torch.tensor(10, dtype=a.dtype, device=a.device)
-    if a.dim() == 3:
-        # bug in 0.4.1
-        return F.mse_loss(a, b).log10() * 10
-    # mean(dim=list) polyfill for 0.4.1
     l = a[0].numel()
     d = list(range(1, a.dim()))
     s = ((a - b).pow(2).sum(d) / l).log10()
@@ -246,8 +241,9 @@ def npsnr_align_max(a, b):
 # d:path or OrdesredDict
 def load(m, d):
     if type(d) is not OrderedDict:
-        # if not Path(d).exists():
-        #     return
+        if not Path(d).exists():
+            print('load path not exist')
+            return
         d = torch.load(d)
     a = OrderedDict()
     s = m.state_dict()

@@ -5,10 +5,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint_sequential
 from torch.utils.checkpoint import checkpoint
-
-from util import show, log, parameter, gen_dct2, kaiming_normal
+from torch.autograd import grad
+from util import show, log, parameter, gen_dct2
 from scipy.io import loadmat
 from config import o
+
 
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
@@ -19,7 +20,9 @@ class ModelStage(nn.Module):
         self.filter_size = filter_size = o.filter_size
         self.lam = torch.tensor(0 if stage == 1 else np.log(0.1), dtype=torch.float)
         # self.lam = torch.tensor(0, dtype=torch.float)
-        self.mean = torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)
+        self.mean = (torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1)).to(
+            o.device
+        )
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
         # self.actw *= 10
@@ -31,8 +34,6 @@ class ModelStage(nn.Module):
                 for i in range(self.depth - 1)
             ),
         ]
-        kaiming_normal(self.filter)
-
         self.bias = [torch.randn(channel) for i in range(self.depth)]
         self.pad = nn.ReplicationPad2d(filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(filter_size // 2))
@@ -46,7 +47,7 @@ class ModelStage(nn.Module):
     def act(self, x, w, gradient=False):
         if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
             x = x.unsqueeze(2)
-            if not gsradient:
+            if not gradient:
                 x = (((x - self.mean).pow(2) / -200).exp() * w).sum(2)
             else:
                 x = (((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w).sum(2)
@@ -65,18 +66,23 @@ class ModelStage(nn.Module):
         x = x * 255
         y = y * 255
         xx = x
-        self.mean = self.mean.to(x.device)
         f = self.filter
-        t = []
-        for i in range(self.depth):
-            x = F.conv2d(self.pad(x), f[i], self.bias[i])
-            t.append(x)
-            x = self.act(x, self.actw[i])
-        x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
-        for i in reversed(range(self.depth - 1)):
-            c1 = t[i]
-            x = x * self.act(c1, self.actw[i], True)
-            x = self.crop(F.conv_transpose2d(x, f[i]))
+        x = F.conv2d(self.pad(x), f[0], self.bias[0])
+        x = self.act(x, self.actw[0])
+        x = F.conv2d(self.pad(x), f[1], self.bias[1])
+        x = self.act(x, self.actw[1])
+        x = grad(x.sum(), xx)
+
+        # t = []
+        # for i in range(self.depth):
+        #     x = F.conv2d(self.pad(x), f[i], self.bias[i])
+        #     t.append(x)
+        #     x = self.act(x, self.actw[i])
+        # x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
+        # for i in reversed(range(self.depth - 1)):
+        #     c1 = t[i]
+        #     x = x * self.act(c1, self.actw[i], True)
+        #     x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
 
@@ -92,22 +98,26 @@ class ModelStack(nn.Module):
         self.stage = stage
 
     def forward(self, d):
-        # tnrd pad and crop
-        # x^t, y=x^0, s
-        d[1] = self.pad(d[1])
-        # d[0].require                                                                   _grad=True
-        # d[1].requires_grad=True
-        t=[]
-        for i in self.m:
-            d[0] = self.pad(d[0])
-            if o.checkpoint:
-                d[2].requires_grad=True
-                d[0] = checkpoint(i, *d)
-            else:
-                d[0] = i(*d)
-            d[0] = self.crop(d[0])
-            t.append(d[0])
-        return t
+        with torch.enable_grad():
+            if not d[0].requires_grad:
+                d[0].requires_grad = True
+            # tnrd pad and crop
+            # x^t, y=x^0, s
+            d[1] = self.pad(d[1])
+            # d[0].require                                                                   _grad=True
+            # d[1].requires_grad=True
+            t = []
+            for i in self.m:
+                d[0] = self.pad(d[0])
+                if o.checkpoint:
+                    d[2].requires_grad = True
+                    d[0] = checkpoint(i, *d)
+                else:
+                    d[0] = i(*d)
+                d[0] = self.crop(d[0])
+                # t.append(d[0])
+
+            return [d[0]]
         # d[0].requires_grad=True
         # d[1].requires_grad=True
         # d[2].requires_grad=True

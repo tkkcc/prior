@@ -1,4 +1,4 @@
-# replace penalty with mlp
+# norm
 import numpy as np
 import torch
 import torch.nn as nn
@@ -93,8 +93,8 @@ class ModelStage(nn.Module):
         self.p1 = C()
         self.p2 = C()
         
-        # self.n1 = nn.InstanceNorm2d(o.channel,track_running_stats=True)
-        # self.n2 = nn.InstanceNorm2d(o.channel,track_running_stats=True)
+        self.n1 = nn.BatchNorm2d(o.channel,track_running_stats=True)
+        self.n2 = nn.BatchNorm2d(o.channel,track_running_stats=True)
         # self.n1 = nn.InstanceNorm2d(o.channel,track_running_stats=True)
         # self.n2 = nn.InstanceNorm2d(o.channel,track_running_stats=True)
         # self.p3 = C(1, 1, 16)
@@ -109,13 +109,13 @@ class ModelStage(nn.Module):
 
         # f = self.filter
         x = self.k1(x)
-        # x = self.n1(x)
+        x = self.n1(x)
         # x = F.conv2d(x, f[0], self.bias[0], padding=o.filter_size // 2)
         x = self.p1(x)
         # x = F.conv2d(x, f[1], self.bias[1], padding=o.filter_size // 2)
-        x = self.k2(x)
+        # x = self.k2(x)
         # x = self.n2(x)
-        x = self.p2(x)
+        # x = self.p2(x)
 
         # x = self.k1(x)
         # x = self.p1(x)

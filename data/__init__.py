@@ -12,9 +12,9 @@ from torch.utils.data import Dataset
 from util import rand_crop, show, augment
 from config import o
 
-random.seed(0)
-np.random.seed(0)
-torch.manual_seed(0)
+random.seed(o.random_seed)
+np.random.seed(o.random_seed)
+torch.manual_seed(o.random_seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
