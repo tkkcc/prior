@@ -53,12 +53,11 @@ def _denoise(path, test=False, sigma=None):
 _f = _denoise
 
 # train
-BSD400 = _f(Path(f"data/BSR/BSDS500/data/images/").glob("t*/*"))
+BSD400 = _f(Path(f"data/BSD500/").glob("t*/*"))
 TNRD400 = _f(Path(f"data/FoETrainingSets180/").glob("*"))
-WED4744 = _f(Path(f"data/pristine_images/").glob("*"))
+WED4744 = _f(Path(f"data/WED4744/").glob("*"))
 ILSVRC12 = _f(Path(f"data/ILSVRC12/").glob("*"))
 # test
-TNRD68 = _f(sorted(Path(f"data/68imgs/").glob("*")), test=True, sigma=25)
-TNRD68_03 = _f(Path(f"data/68imgs/").glob("test003*"), test=True, sigma=25)
 Set12 = _f(sorted(Path(f"data/Set12/").glob("*")), test=True, sigma=25)
 BSD68 = _f(sorted(Path(f"data/BSD68/").glob("*")), test=True, sigma=25)
+BSD68_03 = _f(Path(f"data/BSD68/").glob("test003*"), test=True, sigma=25)

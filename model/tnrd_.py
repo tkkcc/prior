@@ -1,4 +1,4 @@
-# influential p1=p3
+# tnrd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,29 +6,31 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint_sequential
 from torch.utils.checkpoint import checkpoint
 
-from util import show, log, parameter, gen_dct2
+from util import show, log, parameter, gen_dct2, kaiming_normal
 from scipy.io import loadmat
-from config import o,w
+from config import o
 
 
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
         super(ModelStage, self).__init__()
         penalty_num = o.penalty_num
-        self.depth = o.depth
+        self.depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
         self.channel = channel = filter_num = o.channel
         self.filter_size = filter_size = o.filter_size
         self.lam = torch.tensor(0 if stage == 1 else np.log(0.1), dtype=torch.float)
         # self.lam = torch.tensor(0, dtype=torch.float)
         self.mean = (
-            torch.linspace(-310, 310, penalty_num).view(1, 1, penalty_num, 1, 1).to(o.device)
+            torch.linspace(-310, 310, penalty_num)
+            .view(1, 1, penalty_num, 1, 1)
+            .to(o.device)
         )
         self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
         self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
         # self.actw *= 10
-        self.actw = [torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)]
-        self.actwi = torch.randn(1, filter_num, penalty_num, 1, 1)
-        self.actwi *= 10
+        self.actw = [
+            torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)
+        ]
         self.filter = [
             torch.randn(channel, 1, filter_size, filter_size),
             *(
@@ -36,6 +38,8 @@ class ModelStage(nn.Module):
                 for i in range(self.depth - 1)
             ),
         ]
+        kaiming_normal(self.filter)
+
         self.bias = [torch.randn(channel) for i in range(self.depth)]
         self.pad = nn.ReplicationPad2d(filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(filter_size // 2))
@@ -43,19 +47,22 @@ class ModelStage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
-
-        self.lam2 = torch.tensor(0).float()
-        self.lam2 = parameter(self.lam2)
-
         # self.inf = nn.InstanceNorm2d(channel)
 
+    # checkpoint a function
     def act(self, x, w, gradient=False):
-        if x.shape[-1] < o.patch_size * 2 or x.shape[1] == 1 or o.mem_infinity:
+        if (
+            x.shape[1] == 1
+            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size * 2)
+            or (o.mem_capacity == 2)
+        ):
             x = x.unsqueeze(2)
             if not gradient:
                 x = (((x - self.mean).pow(2) / -200).exp() * w).sum(2)
             else:
-                x = (((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w).sum(2)
+                x = (
+                    ((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w
+                ).sum(2)
         else:
             # do on each channel
             x, y = torch.empty_like(x), x
@@ -80,15 +87,7 @@ class ModelStage(nn.Module):
         x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
         for i in reversed(range(self.depth - 1)):
             c1 = t[i]
-
-            p1 = self.act(c1, self.actw[i], True)
-            b11 = p1 * x
-            b12 = p1 * self.lam2
-            x = p1 * (x + self.lam2)
-            w.add_histogram("b11", b11, 0)
-            w.add_histogram("b12", b12, 0)
-            x = b11 + b12
-            # x += self.act(c1, self.actw[i], True) * self.lam2.exp()
+            x = x * self.act(c1, self.actw[i], True)
             x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / 255
 
@@ -108,6 +107,8 @@ class ModelStack(nn.Module):
         # tnrd pad and crop
         # x^t, y=x^0, s
         d[1] = self.pad(d[1])
+        # d[0].require                                                                   _grad=True
+        # d[1].requires_grad=True
         t = []
         for i in self.m:
             d[0] = self.pad(d[0])

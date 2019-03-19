@@ -1,18 +1,19 @@
 #!/usr/bin/env python
+import json
+import time
+
 import torch
 import torch.nn.functional as F
 from torch.nn import DataParallel
-from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR
-from tqdm import tqdm
-from tqdm import trange
+from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
+from torch.utils.data import ConcatDataset, DataLoader
+from tqdm import tqdm, trange
+
 from config import o, w
 from data import *
 from model import Model
-from util import change_key, isnan, load, mean, npsnr, show, nssim, normalize, sleep
-import json
-import time
+from util import change_key, isnan, load, mean, normalize, npsnr, nssim, show, sleep
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
@@ -20,8 +21,8 @@ w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal")
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
-        # ILSVRC12(),
-        ConcatDataset((ILSVRC12(), WED4744())),
+        # BSD400(),
+        ConcatDataset((BSD400(),ILSVRC12(), WED4744())),
         o.batch_size_,
         num_workers=o.num_workers,
         pin_memory=True,
@@ -75,7 +76,7 @@ def greedy(stage=1):
         p = DataParallel(Model(stage - 1)).to(o.device)
         load(p, o.load)
         p.eval()
-        p.stage = stage - 1
+        # p.stage = stage - 1
         if o.init_from == "last":
             a = change_key(p.module.m[-1].state_dict(), lambda x: f"m.0.{x}")
             load(m, a)

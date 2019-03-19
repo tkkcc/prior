@@ -9,71 +9,144 @@ r(){
 teston(){
     c run \"test\"
     c test_set \"$1\"
-    c model \"tnrd\"
+    c model \"tnrdb\"
     c depth 6
     c penalty_num 32
     c stage 1
     c load \"save/g1_tnrd6p32.tar\"
     c sigma 25
+    c mem_capacity 1
     c save_image False
     c checkpoint False
     r
 }
-tnrd6p32(){
+
+tnrd(){
     i(){
         c model \"tnrd\"
         c lr 1e-3
-        c penalty_num 32
-        c run \"greedy\"
-        c filter_scale 1
-        c bias_scale 1
-        c filter_size 5
-        c patch_size 60
-        c batch_size 256
-        c batch_size_ 4
-        c mem_capacity 1
-        c channel 64
-        c depth 6
-        c stage 1
-        c test_set \"Set12\"
-        c epoch 130
-        c milestones [60]
-        c random_seed 1
-        c init_from \"load\"
-        c load \"save/g1_tnrd6p32.tar\"
-        c checkpoint False
-        c save \"save/g1_tnrd6p32+.tar\"
-    }
-    i
-    # c run \"test\"
-    r
-}
-tnrdb(){
-    i(){
-        c model \"tnrdb\"
-        c lr 1e-3
         c ioscale 255
+        c channel 64
         c penalty_space 310
-        c penalty_num 32
-        c penalty_gamma 10
+        c penalty_num 63
+        c penalty_gamma None
         c run \"greedy\"
         c filter_scale 1
         c bias_scale 1
+        c num_workers 4
         c random_seed 0
         c filter_size 5
         c batch_size 4
-        c batch_size_ 4
-        c patch_size 60
-        c depth 2
+        c batch_size_ 2
+        c patch_size 80
+        c depth 6
         c stage 1
         c test_set \"BSD68\"
-        c epoch 130
-        c milestones [120]
+        c epoch 120
+        c milestones [90,110]
         c init_from \"none\"
+        c mem_capacity 1
         c load \"save/g1_tnrd5.tar\"
         c checkpoint False
-        c save \"save/g1_tnrdb_6p32g10.tar\"
+        c save \"save/g1_tnrd6p80.tar\"
     }
+    i
+    r
+}
+tnrd3(){
+    i(){
+        c model \"tnrd\"
+        c lr 1e-3
+        c patch_size 60
+        c penalty_num 63
+        c penalty_space 310
+        c penalty_gamma none
+        c actw_scale 1
+        c bias_scale 1
+        c filter_scale 1
+        c filter_size 5
+        c run \"greedy\"
+        c channel 64
+        c depth 3
+        c epoch 120
+        c milestones [90,110]
+        c stage 1
+        c init_from \"none\"
+        c load \"save/g1_tnrdx4.tar\"
+        c save \"save/g1_tnrd3p60.tar\"
+        c mem_capacity 1
+        c checkpoint False
+        c test_set \"BSD68\"
+    }
+    i
+    r
+}
+tnrd4(){
+    i(){
+        c model \"tnrd\"
+        c lr 1e-3
+        c patch_size 60
+        c penalty_num 63
+        c penalty_space 310
+        c penalty_gamma None
+        c actw_scale 1
+        c bias_scale 1
+        c filter_scale 1
+        c filter_size 5
+        c run \"greedy\"
+        c channel 64
+        c depth [4,3,2,1]
+        c epoch 60
+        c milestones [0,30]
+        c stage 1
+        c init_from \"load\"
+        c load \"save/g1_tnrdx4.tar\"
+        c save \"save/g1_tnrd4+.tar\"
+        c mem_capacity 1
+        c checkpoint False
+        c test_set \"BSD68\"
+    }
+    # i
+    # c run \"test\"
+    # c test_set \"BSD68\"
+    # r
+    i
+    c random_seed 1
+    c batch_size 4
+    r
+}
+tnrd6(){
+    i(){
+        c model \"tnrd\"
+        c lr 1e-3
+        c patch_size 50
+        c penalty_num 63
+        c penalty_space 310
+        c penalty_gamma None
+        c actw_scale 1
+        c bias_scale 1
+        c batch_size 4
+        c batch_size_ 4
+        c filter_scale 1
+        c filter_size 5
+        c run \"greedy\"
+        c channel 80
+        c depth 4
+        c epoch 150
+        c milestones [120,145]
+        c stage 1
+        c init_from \"none\"
+        c load \"save/g1_tnrd.tar\"
+        c save \"save/g1_tnrd4_c80.tar\"
+        c mem_capacity 1
+        c random_seed 0
+        c checkpoint False
+        c test_set \"BSD68\"
+    }
+    # i
+    # c run \"test\"
+    # c test_set \"BSD68\"
+    # r
     i
     r
 }
@@ -423,7 +496,7 @@ tnrdi(){
     #r
 }
 mlpsm(){
-    
+
     c model \"mlpsm\"
     c lr 1e-3
     c bias_scale 1
@@ -439,7 +512,7 @@ mlpsm(){
     r
 }
 mlpelup(){
-    
+
     c model \"mlpelup\"
     c lr 1e-3
     c filter_scale 1
@@ -460,7 +533,7 @@ mlpelup(){
     r
 }
 mlp1x1(){
-    
+
     c model \"mlp1x1\"
     c lr 1e-3
     c filter_scale 1
@@ -475,9 +548,9 @@ mlp1x1(){
     r
 }
 mlpexplam(){
-    
+
     c checkpoint False
-    
+
     c model \"mlpexplam\"
     c lr 1e-3
     c filter_scale 1
@@ -512,9 +585,9 @@ mlpexplam(){
     r
 }
 mlpnolam(){
-    
+
     c checkpoint False
-    
+
     c model \"mlpnolam\"
     c lr 1e-3
     c filter_scale 1
@@ -549,7 +622,7 @@ mlpnolam(){
     r
 }
 tnrd5(){
-    
+
     c model \"tnrd\"
     c lr 1e-3
     c filter_scale .01
@@ -646,7 +719,7 @@ tnrd5(){
 }
 
 mlp(){
-    
+
     c model \"mlp\"
     c lr 1e-3
     c filter_scale 1
@@ -724,7 +797,7 @@ mlp(){
 }
 
 tnrd7(){
-    
+
     # bad at gj2
     # 7x7
     c stage 1

@@ -1,114 +1,124 @@
-# tnrd
-import numpy as np
+# tnrd bn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.checkpoint import checkpoint_sequential
+from torch.autograd import grad
 from torch.utils.checkpoint import checkpoint
 
-from util import show, log, parameter, gen_dct2, kaiming_normal
-from scipy.io import loadmat
 from config import o
+from util import kaiming_normal, parameter
+
+
+class BN(nn.BatchNorm2d):
+    def __init__(self, *argv, **kwargs):
+        super(BN, self).__init__(*argv, **kwargs)
+
+        def hook(self, x, y):
+            x = x[0]
+            self.g = grad(y.sum(), x, retain_graph=True, create_graph=True)[0]
+
+        self.register_forward_hook(hook)
 
 
 class ModelStage(nn.Module):
     def __init__(self, stage=1):
         super(ModelStage, self).__init__()
-        penalty_num = o.penalty_num
         self.depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
-        self.channel = channel = filter_num = o.channel
-        self.filter_size = filter_size = o.filter_size
-        self.lam = torch.tensor(0 if stage == 1 else np.log(0.1), dtype=torch.float)
-        # self.lam = torch.tensor(0, dtype=torch.float)
-        self.mean = (
-            torch.linspace(-310, 310, penalty_num)
-            .view(1, 1, penalty_num, 1, 1)
-            .to(o.device)
+        self.lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
+        self.register_buffer(
+            "mean",
+            torch.linspace(-o.penalty_space, o.penalty_space, o.penalty_num).view(
+                1, 1, o.penalty_num, 1, 1
+            ),
         )
-        self.actw = torch.randn(1, filter_num, penalty_num, 1, 1)
-        self.actw *= 10 if stage == 1 else 5 if stage == 2 else 1
-        # self.actw *= 10
+        self.register_buffer(
+            "ngammas",
+            -torch.tensor(
+                o.penalty_gamma or (2 * o.penalty_space / (o.penalty_num - 1))
+            )
+            .float()
+            .pow(2),
+        )
         self.actw = [
-            torch.randn(1, filter_num, penalty_num, 1, 1) for i in range(self.depth)
+            torch.randn(1, o.channel, o.penalty_num, 1, 1) for i in range(self.depth)
         ]
         self.filter = [
-            torch.randn(channel, 1, filter_size, filter_size),
+            torch.randn(o.channel, 1, o.filter_size, o.filter_size),
             *(
-                torch.randn(channel, channel, filter_size, filter_size)
+                torch.randn(o.channel, o.channel, o.filter_size, o.filter_size)
                 for i in range(self.depth - 1)
             ),
         ]
         kaiming_normal(self.filter)
+        self.bias = [torch.randn(o.channel) for i in range(self.depth)]
+        self.bn = [
+            BN(o.channel, track_running_stats=False) for i in range(self.depth * 2)
+        ]
 
-        self.bias = [torch.randn(channel) for i in range(self.depth)]
-        self.pad = nn.ReplicationPad2d(filter_size // 2)
-        self.crop = nn.ReplicationPad2d(-(filter_size // 2))
+        self.pad = nn.ReplicationPad2d(o.filter_size // 2)
+        self.crop = nn.ReplicationPad2d(-(o.filter_size // 2))
         self.lam = parameter(self.lam)
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
-        # self.inf = nn.InstanceNorm2d(channel)
+        self.bn = nn.ModuleList(self.bn)
 
     # checkpoint a function
-    def act(self, x, w, gradient=False):
+    def act(self, x, w, grad=False):
         if (
             x.shape[1] == 1
             or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size * 2)
             or (o.mem_capacity == 2)
         ):
             x = x.unsqueeze(2)
-            if not gradient:
-                x = (((x - self.mean).pow(2) / -200).exp() * w).sum(2)
+            if not grad:
+                x = (((x - self.mean).pow(2) / self.ngammas / 2).exp() * w).sum(2)
             else:
-                x = (
-                    ((x - self.mean).pow(2) / -200).exp() * (x - self.mean) / -100 * w
-                ).sum(2)
+                t = x - self.mean
+                x = ((t.pow(2) / self.ngammas / 2).exp() * t / self.ngammas * w).sum(2)
         else:
             # do on each channel
             x, y = torch.empty_like(x), x
             for j in range(x.shape[1]):
                 x[:, j, ...] = self.act(
-                    y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1), gradient
+                    y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1), grad
                 ).squeeze(1)
         return x
 
     # Bx1xHxW
     def forward(self, *inputs):
         x, y, lam = inputs
-        x = x * 255
-        y = y * 255
+        x, y = x * o.ioscale, y * o.ioscale
         xx = x
         f = self.filter
         t = []
         for i in range(self.depth):
             x = F.conv2d(self.pad(x), f[i], self.bias[i])
+            # x = self.bn[i](x)
             t.append(x)
             x = self.act(x, self.actw[i])
-        x = self.crop(F.conv_transpose2d(x, f[self.depth - 1]))
-        for i in reversed(range(self.depth - 1)):
-            c1 = t[i]
-            x = x * self.act(c1, self.actw[i], True)
+        for i in reversed(range(self.depth)):
+            if i != self.depth - 1:
+                x *= self.act(t[i], self.actw[i], True)
+            # x *= self.bn[i].g
+            # x = self.bn[i+2](x)
             x = self.crop(F.conv_transpose2d(x, f[i]))
-        return (xx - (x + self.lam.exp() * (xx - y))) / 255
+        return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 
 
 class ModelStack(nn.Module):
-    def __init__(self, stage=1, weight=None):
+    def __init__(self, stage=1):
         super(ModelStack, self).__init__()
-        if type(stage) == int:
-            stage = range(1, stage + 1)
-        self.m = nn.ModuleList(ModelStage(i) for i in stage)
-        pad_width = self.m[0].filter_size + 1
+        self.stage = stage = range(1, stage + 1) if type(stage) == int else stage
+        pad_width = o.filter_size + 1
         self.pad = nn.ReplicationPad2d(pad_width)
         self.crop = nn.ReplicationPad2d(-pad_width)
-        self.stage = stage
+        self.m = nn.ModuleList(ModelStage(i) for i in stage)
 
     def forward(self, d):
-        # tnrd pad and crop
         # x^t, y=x^0, s
+        # with torch.enable_grad():
         d[1] = self.pad(d[1])
-        # d[0].require                                                                   _grad=True
-        # d[1].requires_grad=True
         t = []
         for i in self.m:
             d[0] = self.pad(d[0])
@@ -120,7 +130,3 @@ class ModelStack(nn.Module):
             d[0] = self.crop(d[0])
             t.append(d[0])
         return t
-        # d[0].requires_grad=True
-        # d[1].requires_grad=True
-        # d[2].requires_grad=True
-        # return checkpoint_sequential(self.m,4,*d)
