@@ -18,11 +18,13 @@ from util import change_key, isnan, load, mean, normalize, npsnr, nssim, show, s
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
 w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal")
+assert o.device == "cuda"
+assert o.batch_size_ >= torch.cuda.device_count()
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
         # BSD400(),
-        ConcatDataset((BSD400(),ILSVRC12(), WED4744())),
+        ConcatDataset((BSD400(), ILSVRC12(), WED4744())),
         o.batch_size_,
         num_workers=o.num_workers,
         pin_memory=True,
@@ -54,10 +56,10 @@ def train(m, p=None):
             loss.backward()
             loss = loss.detach().item()
             assert not isnan(loss)
-            w.add_scalar("loss", loss, num)
-            w.add_scalar("loss/-batch", -loss / o.batch_size_, num)
-            w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
             if num % (o.batch_size // o.batch_size_) == 0:
+                w.add_scalar("loss", loss, num)
+                w.add_scalar("loss/-batch", -loss / o.batch_size_, num)
+                w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
                 optimizer.step()
                 optimizer.zero_grad()
         m.eval()
@@ -65,7 +67,8 @@ def train(m, p=None):
         m.train()
         w.add_scalar("psnr", psnr, i)
         for name, param in m.named_parameters():
-            w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
+            if "lam" in name:
+                w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
 
 
 # greedy train the i stage

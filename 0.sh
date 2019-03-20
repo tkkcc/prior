@@ -31,24 +31,27 @@ tnrd(){
         c penalty_num 63
         c penalty_gamma None
         c run \"greedy\"
+        # c run \"test\"
         c filter_scale 1
         c bias_scale 1
         c num_workers 4
         c random_seed 0
         c filter_size 5
         c batch_size 4
-        c batch_size_ 2
-        c patch_size 80
+        c sigma 25
+        c batch_size_ 1
+        c patch_size 200
         c depth 6
         c stage 1
         c test_set \"BSD68\"
         c epoch 120
         c milestones [90,110]
         c init_from \"none\"
-        c mem_capacity 1
+        c mem_capacity 2
         c load \"save/g1_tnrd5.tar\"
-        c checkpoint False
-        c save \"save/g1_tnrd6p80.tar\"
+        c rbf_checkpoint True
+        c stage_checkpoint False
+        c save \"save/g1_tnrd6p200.tar\"
     }
     i
     r

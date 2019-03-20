@@ -4,12 +4,12 @@ from pathlib import Path
 
 o = dict(
     model="tnrd",
-    run="greedy",
+    run="test",
     test_set="BSD68",
     stage=1,
     batch_size=4,
     # internal batch size
-    batch_size_=2,
+    batch_size_=1,
     num_workers=4,
     epoch=120,
     lr=1e-3,
@@ -27,19 +27,20 @@ o = dict(
     bias_scale=1,
     filter_scale=1,
     actw_scale=1,
-    patch_size=80,
+    patch_size=200,
     sigma=25,
     sigma_range=False,
     save_image=False,
     # 0: for loop, 1: tensor boardcast in train for loop in test, 2:tensor
-    mem_capacity=1,
+    mem_capacity=2,
     # greedy train, init current(n) stage using n-1 stage, else init like TNRD
     # init_from = "last",
     # greedy train, init current(n) stage from load, for continue train
     init_from="none",
-    checkpoint=False,
+    rbf_checkpoint=True,
+    stage_checkpoint=False,
     load="save/g1_tnrd5.tar",
-    save="save/g1_tnrd6p80.tar",
+    save="save/g1_tnrd6p200.tar",
 )
 o = dotdict(o)
 c = o.test_set if o.run == "test" else Path(o.save).stem

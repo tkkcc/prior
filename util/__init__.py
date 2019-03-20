@@ -15,6 +15,7 @@ from collections import OrderedDict
 from tensorboardX import SummaryWriter
 from time import sleep
 from pathlib import Path
+from torch.utils.checkpoint import checkpoint
 
 
 class dotdict(dict):
@@ -43,7 +44,9 @@ def psf2otf(psf, shape):
 def cm(t1, t2):
     real1, imag1 = t1[..., 0], t1[..., 1]
     real2, imag2 = t2[..., 0], t2[..., 1]
-    return torch.stack([real1 * real2 - imag1 * imag2, real1 * imag2 + imag1 * real2], dim=-1)
+    return torch.stack(
+        [real1 * real2 - imag1 * imag2, real1 * imag2 + imag1 * real2], dim=-1
+    )
 
 
 # complex's conjugation
@@ -120,7 +123,9 @@ def edgetaper(img, kernel, n_tapers=3):
         kernel = kernel[..., np.newaxis]
         alpha = alpha[..., np.newaxis]
     for i in range(n_tapers):
-        blurred = fftconvolve(pad_for_kernel(img, _kernel, "wrap"), kernel, mode="valid")
+        blurred = fftconvolve(
+            pad_for_kernel(img, _kernel, "wrap"), kernel, mode="valid"
+        )
         img = alpha * img + (1 - alpha) * blurred
     return img
 
@@ -242,7 +247,7 @@ def npsnr_align_max(a, b):
 def load(m, d):
     if type(d) is not OrderedDict:
         if not Path(d).exists():
-            print('load path not exist')
+            print("load path not exist")
             return
         d = torch.load(d)
     a = OrderedDict()
@@ -306,8 +311,15 @@ def normalize(x):
         normalised = torch.zeros(x.size())
     return normalised
 
+
 def kaiming_normal(x):
     if type(x) is not list:
         return nn.init.kaiming_normal_(x)
     for i in x:
         nn.init.kaiming_normal_(i)
+
+
+def checkpointor(func, flag):
+    # return lambda *args: checkpoint(func, *args)
+    return lambda *args: checkpoint(func, *args) if flag else func(*args)
+
