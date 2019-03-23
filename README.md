@@ -1,5 +1,5 @@
 ## dependency
-python3.4+ torch numpy skimage scipy matplotlib tqdm tensorboardX
+python3.4+ torch numpy scikit-image scipy matplotlib tqdm tensorboardX
 
 ## dataset
 ```sh

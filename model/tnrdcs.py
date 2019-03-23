@@ -1,4 +1,4 @@
-# tnrd checkpoint sequential
+# force checkpoint for patch_size>100
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -84,9 +84,6 @@ class Stage(nn.Module):
 
         self.pad = nn.ReplicationPad2d(o.filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(o.filter_size // 2))
-        # self.r = nn.ModuleList((RBF(), RBF(grad=True)))
-        # self.rbf = checkpointor(self.r[0],o.rbf_checkpoint)
-        # self.rbfg = checkpointor(self.r[1],o.rbf_checkpoint)
         self.rbf = RBF()
         self.rbfg = RBF(grad=True)
 
@@ -106,19 +103,9 @@ class Stage(nn.Module):
             x = checkpoint(F.conv2d, self.pad(x), f[i], self.bias[i])
             t.append(x)
             x = checkpoint(self.rbf, x, self.actw[i])
-            # x = (
-            #     checkpoint(self.rbf, x, self.actw[i])
-            #     if o.rbf_checkpoint
-            #     else self.rbf(x, self.actw[i])
-            # )
         for i in reversed(range(self.depth)):
             if i != self.depth - 1:
                 x *= checkpoint(self.rbfg, t[i], self.actw[i])
-                # x *= (
-                #     checkpoint(self.rbfg, t[i], self.actw[i])
-                #     if o.rbf_checkpoint
-                #     else self.rbfg(t[i], self.actw[i])
-                # )
             x = self.crop(checkpoint(F.conv_transpose2d, x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 

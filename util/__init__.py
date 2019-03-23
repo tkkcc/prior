@@ -1,9 +1,9 @@
-import torch.nn.functional as F
-from scipy.signal import fftconvolve
 import numpy as np
+from scipy.signal import fftconvolve
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 import random
 from scipy.signal import convolve2d
 from .gen_kernel import blurkernel_synthesis as gen_kernel
@@ -247,7 +247,7 @@ def npsnr_align_max(a, b):
 def load(m, d):
     if type(d) is not OrderedDict:
         if not Path(d).exists():
-            print("load path not exist")
+            print("load path not exist: " + str(d))
             return
         d = torch.load(d)
     a = OrderedDict()
@@ -325,7 +325,7 @@ def kaiming_normal(x):
 #             args[0].requires_grad_(True)
 #             return checkpoint(func, *args)
 #         return func(*args)
+
 #     return f
-    # return lambda *args: checkpoint(func, *args) if flag else func(*args)
-    
+#     return lambda *args: checkpoint(func, *args) if flag else func(*args)
 

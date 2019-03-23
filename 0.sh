@@ -43,12 +43,12 @@ i(){
 teston(){
     i
     c run \"test\"
-    c test_set \"$1\"
-    c model \"tnrdcs\"
+    c test_set \""${1:-BSD68_03}"\"
+    # c model \"tnrdcs\"
     # c depth 6
     # c penalty_num 100
-    c mem_capacity 2
-    c save_image True
+    # c mem_capacity 2
+    # c save_image True
     # c stage 1
     # c sigma 25
     c load \"save/g1_tnrd6p100.tar\"

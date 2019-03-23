@@ -3,17 +3,18 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrdcs",
+    model="tnrd",
     run="test",
-    test_set="BSD68",
+    test_set="Set12",
     batch_size=4,
     # internal batch size
     batch_size_=4,
     num_workers=4,
     epoch=120,
     lr=1e-3,
-    # lr*=0.1 when epoch=3, start from 0
+    # lr*=0.1 when epoch in milestones, start from 0
     milestones=[90,110],
+    # sigma only for train
     sigma=25,
     sigma_range=False,
     patch_size=60,
@@ -31,13 +32,13 @@ o = dict(
     filter_scale=1,
     actw_scale=1,
     ## extra
-    save_image=True,
+    save_image=False,
     random_seed=0,
     # 0: for loop, 1: tensor boardcast in train for loop in test, 2:tensor
-    mem_capacity=2,
-    # greedy train, init current(n) stage using n-1 stage, else init like TNRD
-    # init_from = "last",
-    # greedy train, init current(n) stage from load, for continue train
+    mem_capacity=1,
+    # "last": greedy train, init current(n) stage using n-1 stage
+    # "load": greedy train, init current(n) stage from load, for continue train
+    # other: default random init 
     init_from="none",
     rbf_checkpoint=False,
     stage_checkpoint=False,

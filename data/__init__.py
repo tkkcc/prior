@@ -25,16 +25,11 @@ def _denoise(path, test=False, sigma=None):
             d = path
             d = Path(d) if type(d) is str else d
             d= [i for i in d if i.is_file()]
-            
-            # d = [imread(i) / 255 for i in d if i.is_file()]
-            # d = [rgb2gray(i).astype(np.float32) for i in d]
             self.d = d
 
         def __getitem__(self, i):
-            # g = imread(random.choice(self.d)) / 255
             g = imread(self.d[i]) / 255
             g = rgb2gray(g).astype(np.float32)
-            # g = random.choice(self.d)
             g = augment(rand_crop(g, o.patch_size)) if not test else g
             g = torch.from_numpy(g).view(1, *g.shape)
             s = sigma or o.sigma if test else o.sigma * (random.random() if o.sigma_range else 1)
@@ -42,7 +37,7 @@ def _denoise(path, test=False, sigma=None):
             y = g.clone().detach()
             y += torch.randn_like(y) * s / 255
             return g, y, s
-            # [1,180,180] [1,180,180] [1]
+            # [C,H,W] [C,H,W] [1]
 
         def __len__(self):
             return len(self.d)

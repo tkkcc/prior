@@ -1,4 +1,3 @@
-# tnrd checkpoint in middle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -45,6 +44,7 @@ class RBF(nn.Module):
             or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size * 1.2)
             or (o.mem_capacity == 2)
         ):
+            # use tensor boardcast
             x = x.unsqueeze(2)
             if not self.grad:
                 x = (((x - self.mean).pow(2) / self.ngammas / 2).exp() * w).sum(2)
@@ -81,12 +81,9 @@ class Stage(nn.Module):
         ]
         kaiming_normal(self.filter)
         self.bias = [torch.randn(o.channel) for i in range(self.depth)]
-    
+
         self.pad = nn.ReplicationPad2d(o.filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(o.filter_size // 2))
-        # self.r = nn.ModuleList((RBF(), RBF(grad=True)))
-        # self.rbf = checkpointor(self.r[0],o.rbf_checkpoint)
-        # self.rbfg = checkpointor(self.r[1],o.rbf_checkpoint)
         self.rbf = RBF()
         self.rbfg = RBF(grad=True)
 
@@ -94,7 +91,7 @@ class Stage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
-    
+
     # Bx1xHxW
     def forward(self, *inputs):
         x, y, lam = inputs
@@ -106,21 +103,9 @@ class Stage(nn.Module):
             x = F.conv2d(self.pad(x), f[i], self.bias[i])
             t.append(x)
             x = self.rbf(x, self.actw[i])
-            # x = checkpoint(self.rbf, x, self.actw[i])
-            # x = (
-            #     checkpoint(self.rbf, x, self.actw[i])
-            #     if o.rbf_checkpoint
-            #     else self.rbf(x, self.actw[i])
-            # )
         for i in reversed(range(self.depth)):
             if i != self.depth - 1:
                 x *= self.rbfg(t[i], self.actw[i])
-                # x *= checkpoint(self.rbfg, t[i], self.actw[i])
-                # x *= (
-                #     checkpoint(self.rbfg, t[i], self.actw[i])
-                #     if o.rbf_checkpoint
-                #     else self.rbfg(t[i], self.actw[i])
-                # )
             x = self.crop(F.conv_transpose2d(x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 
