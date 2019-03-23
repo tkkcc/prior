@@ -319,7 +319,13 @@ def kaiming_normal(x):
         nn.init.kaiming_normal_(i)
 
 
-def checkpointor(func, flag):
-    # return lambda *args: checkpoint(func, *args)
-    return lambda *args: checkpoint(func, *args) if flag else func(*args)
+# def checkpointor(func, flag):
+#     def f(*args):
+#         if flag:
+#             args[0].requires_grad_(True)
+#             return checkpoint(func, *args)
+#         return func(*args)
+#     return f
+    # return lambda *args: checkpoint(func, *args) if flag else func(*args)
+    
 

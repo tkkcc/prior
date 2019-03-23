@@ -113,7 +113,7 @@ def test(stage=1):
     load(m, o.load)
     m.eval()
     m = _test(m, benchmark=True)
-    w.add_text("average", str(m), 0)
+    w.add_text("result", str(m), 0)
     print(m)
 
 

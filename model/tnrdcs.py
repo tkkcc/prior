@@ -1,4 +1,4 @@
-# tnrd checkpoint in middle
+# tnrd checkpoint sequential
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -81,7 +81,7 @@ class Stage(nn.Module):
         ]
         kaiming_normal(self.filter)
         self.bias = [torch.randn(o.channel) for i in range(self.depth)]
-    
+
         self.pad = nn.ReplicationPad2d(o.filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(o.filter_size // 2))
         # self.r = nn.ModuleList((RBF(), RBF(grad=True)))
@@ -94,7 +94,7 @@ class Stage(nn.Module):
         self.bias = parameter(self.bias, o.bias_scale)
         self.filter = parameter(self.filter, o.filter_scale)
         self.actw = parameter(self.actw, o.actw_scale)
-    
+
     # Bx1xHxW
     def forward(self, *inputs):
         x, y, lam = inputs
@@ -103,10 +103,9 @@ class Stage(nn.Module):
         f = self.filter
         t = []
         for i in range(self.depth):
-            x = F.conv2d(self.pad(x), f[i], self.bias[i])
+            x = checkpoint(F.conv2d, self.pad(x), f[i], self.bias[i])
             t.append(x)
-            x = self.rbf(x, self.actw[i])
-            # x = checkpoint(self.rbf, x, self.actw[i])
+            x = checkpoint(self.rbf, x, self.actw[i])
             # x = (
             #     checkpoint(self.rbf, x, self.actw[i])
             #     if o.rbf_checkpoint
@@ -114,14 +113,13 @@ class Stage(nn.Module):
             # )
         for i in reversed(range(self.depth)):
             if i != self.depth - 1:
-                x *= self.rbfg(t[i], self.actw[i])
-                # x *= checkpoint(self.rbfg, t[i], self.actw[i])
+                x *= checkpoint(self.rbfg, t[i], self.actw[i])
                 # x *= (
                 #     checkpoint(self.rbfg, t[i], self.actw[i])
                 #     if o.rbf_checkpoint
                 #     else self.rbfg(t[i], self.actw[i])
                 # )
-            x = self.crop(F.conv_transpose2d(x, f[i]))
+            x = self.crop(checkpoint(F.conv_transpose2d, x, f[i]))
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 
 
