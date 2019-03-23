@@ -18,7 +18,9 @@ wget https://www.dropbox.com/s/8j6b880m6ddxtee/TNRD-Codes.zip
 unzip TNRD-Codes.zip
 mv TNRD-Codes/TrainingCodes4denoising/FoETrainingSets180 data/
 # BSD68
-mv "TNRD-Codes/TestCodes(denoising-deblocking-SR)/GaussianDenoising/68imgs" data/BSD68
+# mv "TNRD-Codes/TestCodes(denoising-deblocking-SR)/GaussianDenoising/68imgs" data/BSD68
+wget https://github.com/tkkcc/tmp/releases/download/0.0.1/BSD68.tar
+tar xvf BSD68.tar -C data/
 # Waterloo Exploration 4744
 wget http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar
 unrar x exploration_database_and_code.rar
@@ -26,6 +28,9 @@ mv exploration_database_and_code/pristine_images data/WED4744
 # Set 12
 wget https://github.com/tkkcc/tmp/releases/download/0.0.1/Set12.zip
 unzip -n Set12.zip -d data/
+# ILSVRC12 random 400
+wget https://github.com/tkkcc/tmp/releases/download/0.0.1/ILSVRC12.tar
+tar xvf ILSVRC12.tar -C data/
 ```
 
 ## source
