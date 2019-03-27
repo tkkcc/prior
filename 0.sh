@@ -37,6 +37,7 @@ i(){
     c mem_capacity 1
     c init_from \"none\"
     c rbf_checkpoint False
+    c model_checkpoint False
     c stage_checkpoint False
     c load \"save/g1_tnrd5.tar\"
     c save \"save/g1_tnrd6p200.tar\"
@@ -45,6 +46,7 @@ teston(){
     i
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
+    c stage_checkpoint 3
     # c model \"tnrdcs\"
     # c depth 6
     # c penalty_num 100
@@ -58,7 +60,7 @@ teston(){
 tnrd(){
     a(){
         i
-        c model \"tnrdcs\"
+        c model \"tnrd\"
         #c run \"test\"
         # c test_set \"BSD68\"
         c batch_size_ 2
@@ -66,15 +68,16 @@ tnrd(){
         #c rbf_checkpoint True
         #c mem_capacity 2
         #c channel 96
-        c filter_size 7
-        c patch_size 100
-        c depth 10
+        # c filter_size 5
+        c patch_size 60
+        c depth 4
+        c stage_checkpoint 3
         #c epoch 300
         #c milestones [0,100,200]
         #c sigma 30
         #c init_from \"load\"
         #c load \"save/g1_tnrd6p100.tar\"
-        c save \"save/g1_tnrd6p100fs7.tar\"
+        c save \"save/g1_tnrd6p100recs.tar\"
     }
     a
     r

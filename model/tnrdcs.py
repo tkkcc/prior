@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
-from torch.utils.checkpoint import checkpoint
+from torch.utils.checkpoint import checkpoint, checkpoint_sequential
 
 from config import o
 from util import kaiming_normal, parameter
@@ -20,9 +20,9 @@ class BN(nn.BatchNorm2d):
         self.register_forward_hook(hook)
 
 
-class RBF(nn.Module):
-    def __init__(self, grad=False):
-        super(RBF, self).__init__()
+class Rbf(nn.Module):
+    def __init__(self, once=False):
+        super(Rbf, self).__init__()
         self.register_buffer(
             "mean",
             torch.linspace(-o.penalty_space, o.penalty_space, o.penalty_num).view(
@@ -37,12 +37,17 @@ class RBF(nn.Module):
             .float()
             .pow(2),
         )
-        self.grad = grad
+        self.once = once
+        self.grad = False
+        # require assign after init
+        self.w = None
 
-    def act(self, x, w):
+    def act(self, x, w=None):
+        if w is None:
+            w = self.w
         if (
             x.shape[1] == 1
-            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size * 1.2)
+            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size + o.filter_size*3)
             or (o.mem_capacity == 2)
         ):
             x = x.unsqueeze(2)
@@ -53,6 +58,7 @@ class RBF(nn.Module):
                 x = ((x.pow(2) / self.ngammas / 2).exp() * x / self.ngammas * w).sum(2)
         else:
             # do on each channel
+            exit(0)
             x, y = torch.empty_like(x), x
             for j in range(x.shape[1]):
                 x[:, j, ...] = self.act(
@@ -60,53 +66,105 @@ class RBF(nn.Module):
                 ).squeeze(1)
         return x
 
-    def forward(self, *args):
-        return self.act(*args)
+    def forward(self, x):
+        if not self.grad:
+            self.cache = x
+            x = self.act(x)
+        else:
+            x = x * self.act(self.cache)
+        if not self.once:
+            self.grad = not self.grad
+        return x
 
 
 class Stage(nn.Module):
     def __init__(self, stage=1):
         super(Stage, self).__init__()
-        self.depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
-        self.lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
-        self.actw = [
-            torch.randn(1, o.channel, o.penalty_num, 1, 1) for i in range(self.depth)
-        ]
-        self.filter = [
+        # make parameter
+        depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
+        lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
+        actw = [torch.randn(1, o.channel, o.penalty_num, 1, 1) for i in range(depth)]
+        filter = [
             torch.randn(o.channel, 1, o.filter_size, o.filter_size),
             *(
                 torch.randn(o.channel, o.channel, o.filter_size, o.filter_size)
-                for i in range(self.depth - 1)
+                for i in range(depth - 1)
             ),
         ]
-        kaiming_normal(self.filter)
-        self.bias = [torch.randn(o.channel) for i in range(self.depth)]
+        kaiming_normal(filter)
+        bias = [torch.randn(o.channel) for i in range(depth)]
+        lam = parameter(lam)
+        bias = parameter(bias, o.bias_scale)
+        filter = parameter(filter, o.filter_scale)
+        actw = parameter(actw, o.actw_scale)
 
-        self.pad = nn.ReplicationPad2d(o.filter_size // 2)
-        self.crop = nn.ReplicationPad2d(-(o.filter_size // 2))
-        self.rbf = RBF()
-        self.rbfg = RBF(grad=True)
-
-        self.lam = parameter(self.lam)
-        self.bias = parameter(self.bias, o.bias_scale)
-        self.filter = parameter(self.filter, o.filter_scale)
-        self.actw = parameter(self.actw, o.actw_scale)
+        # make modules
+        pad = nn.ReplicationPad2d(o.filter_size // 2)
+        crop = nn.ReplicationPad2d(-(o.filter_size // 2))
+        conv = [
+            nn.Conv2d(1, o.channel, o.filter_size),
+            *(nn.Conv2d(o.channel, o.channel, o.filter_size) for i in range(depth - 1)),
+        ]
+        convt = [
+            nn.ConvTranspose2d(o.channel, 1,o.filter_size, bias=False),
+            *(
+                nn.ConvTranspose2d(o.channel, o.channel, o.filter_size, bias=False)
+                for i in range(depth - 1)
+            ),
+        ]
+        rbf = [Rbf() for i in range(depth)]
+        rbf[-1].once = True
+        # rbfg = [Rbf(True) for i in range(depth)]
+        # assign parameter
+        for i in range(depth):
+            # assert conv[i].weight.shape == filter[i].shape
+            # assert conv[i].bias.shape == bias[i].shape
+            # assert convt[i].weight.shape == filter[i].transpose(0,1).shape
+            conv[i].weight = filter[i]
+            conv[i].bias = bias[i]
+            convt[i].weight = filter[i]
+            rbf[i].w = actw[i]
+            # rbfg[i].w = actw[i]
+        # del rbfg[depth - 1]
+        # make sequential
+        pcf = lambda i: (pad, conv[i], rbf[i])
+        cc = lambda i: (convt[i], crop)
+        rcc = lambda i: (rbf[i], convt[i], crop)
+        m = nn.Sequential(
+            # pad,
+            # conv[0],
+            # rbf[0],
+            # pad,
+            # conv[1],
+            # rbf[1],
+            # pad,
+            # conv[2],
+            # rbf[2],
+            # convt[2],
+            # crop,
+            # rbf[1],
+            # convt[1],
+            # crop,
+            # rbf[0],
+            # convt[0],
+            # crop,
+            *(j for i in range(depth) for j in pcf(i)),
+            *cc(depth - 1),
+            *(j for i in reversed(range(depth - 1)) for j in rcc(i))
+        )
+        self.m = m
+        self.lam = lam
 
     # Bx1xHxW
     def forward(self, *inputs):
         x, y, lam = inputs
         x, y = x * o.ioscale, y * o.ioscale
         xx = x
-        f = self.filter
-        t = []
-        for i in range(self.depth):
-            x = checkpoint(F.conv2d, self.pad(x), f[i], self.bias[i])
-            t.append(x)
-            x = checkpoint(self.rbf, x, self.actw[i])
-        for i in reversed(range(self.depth)):
-            if i != self.depth - 1:
-                x *= checkpoint(self.rbfg, t[i], self.actw[i])
-            x = self.crop(checkpoint(F.conv_transpose2d, x, f[i]))
+        
+        x.requires_grad = True
+        x = checkpoint_sequential(self.m, o.stage_checkpoint, x)
+        # x = self.m(x)
+        # x.sum().backward()
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 
 
@@ -126,7 +184,7 @@ class Model(nn.Module):
         t = []
         for i in self.m:
             d[0] = self.pad(d[0])
-            if o.stage_checkpoint:
+            if o.model_checkpoint:
                 d[2].requires_grad = True
                 d[0] = checkpoint(i, *d)
             else:

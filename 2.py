@@ -69,10 +69,8 @@ def train(m, p=None):
         for name, param in m.named_parameters():
             if "lam" in name:
                 w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
-        if i%10==9:
-            torch.save(m.module.state_dict(), o.save[:-4]+'e10.tar')
-        if i%100==99:
-            torch.save(m.module.state_dict(), o.save[:-4]+'e100.tar')
+        if i%10==0 and i!=0:
+            torch.save(m.module.state_dict(), o.save[:-4]+f'e{i}.tar')
 
 
 # greedy train the i stage

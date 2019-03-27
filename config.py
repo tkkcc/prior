@@ -3,13 +3,13 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrd",
+    model="tnrdcs",
     run="greedy",
     test_set="BSD68",
     batch_size=4,
     # internal batch size
     batch_size_=2,
-    num_workers=4,
+    num_workers=0,
     epoch=120,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
@@ -17,13 +17,13 @@ o = dict(
     # sigma only for train
     sigma=25,
     sigma_range=False,
-    patch_size=100,
+    patch_size=60,
     join_loss=False,
     ## model
     stage=1,
-    depth=10,
+    depth=4,
     channel=64,
-    filter_size=7,
+    filter_size=5,
     ioscale=255,
     penalty_space=310,
     penalty_num=63,
@@ -40,10 +40,10 @@ o = dict(
     # "load": greedy train, init current(n) stage from load, for continue train
     # other: default random init 
     init_from="none",
-    rbf_checkpoint=False,
-    stage_checkpoint=False,
+    model_checkpoint=False,
+    stage_checkpoint=3,
     load="save/g1_tnrd5.tar",
-    save="save/g1_tnrd6p100fs7.tar",
+    save="save/g1_tnrd6p100recs.tar",
 )
 o = dotdict(o)
 c = o.test_set if o.run == "test" else Path(o.save).stem
