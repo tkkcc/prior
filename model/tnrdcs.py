@@ -132,5 +132,6 @@ class Model(nn.Module):
             else:
                 d[0] = i(*d)
             d[0] = self.crop(d[0])
-            t.append(d[0])
+        # for mem
+        t.append(d[0])
         return t

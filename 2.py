@@ -69,6 +69,10 @@ def train(m, p=None):
         for name, param in m.named_parameters():
             if "lam" in name:
                 w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
+        if i%10==9:
+            torch.save(m.module.state_dict(), o.save[:-4]+'e10.tar')
+        if i%100==99:
+            torch.save(m.module.state_dict(), o.save[:-4]+'e100.tar')
 
 
 # greedy train the i stage
@@ -142,6 +146,8 @@ def _test(m, p=None, benchmark=False):
                 w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
             del loss
             del out
+            del x 
+            del y 
         if benchmark:
             return mean(losss), mean(times)
         return mean(losss)

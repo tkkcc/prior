@@ -4,6 +4,7 @@ c(){
     sed -ri 's|^(\s*'$1'=).*,|\1'$2',|' config.py
 }
 r(){
+
     python 2.py
 }
 i(){
@@ -58,18 +59,22 @@ tnrd(){
     a(){
         i
         c model \"tnrdcs\"
-        # c run \"test\"
+        #c run \"test\"
         # c test_set \"BSD68\"
-        # c batch_size_ 1
+        c batch_size_ 2
         # c num_workers 4
         #c rbf_checkpoint True
-        # c depth 6
-        #c mem_capacity 1
-        c channel 96
+        #c mem_capacity 2
+        #c channel 96
+        c filter_size 7
         c patch_size 100
+        c depth 10
+        #c epoch 300
+        #c milestones [0,100,200]
         #c sigma 30
-        c load \"save/g1_tnrd6p60.tar\"
-        c save \"save/g1_tnrd6p100c96.tar\"
+        #c init_from \"load\"
+        #c load \"save/g1_tnrd6p100.tar\"
+        c save \"save/g1_tnrd6p100fs7.tar\"
     }
     a
     r

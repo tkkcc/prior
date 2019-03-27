@@ -4,11 +4,11 @@ from pathlib import Path
 
 o = dict(
     model="tnrd",
-    run="test",
-    test_set="Set12",
+    run="greedy",
+    test_set="BSD68",
     batch_size=4,
     # internal batch size
-    batch_size_=4,
+    batch_size_=2,
     num_workers=4,
     epoch=120,
     lr=1e-3,
@@ -17,13 +17,13 @@ o = dict(
     # sigma only for train
     sigma=25,
     sigma_range=False,
-    patch_size=60,
+    patch_size=100,
     join_loss=False,
     ## model
     stage=1,
-    depth=6,
+    depth=10,
     channel=64,
-    filter_size=5,
+    filter_size=7,
     ioscale=255,
     penalty_space=310,
     penalty_num=63,
@@ -42,8 +42,8 @@ o = dict(
     init_from="none",
     rbf_checkpoint=False,
     stage_checkpoint=False,
-    load="save/g1_tnrd6p100.tar",
-    save="save/g1_tnrd6p200.tar",
+    load="save/g1_tnrd5.tar",
+    save="save/g1_tnrd6p100fs7.tar",
 )
 o = dotdict(o)
 c = o.test_set if o.run == "test" else Path(o.save).stem

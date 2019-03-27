@@ -10,13 +10,14 @@ from skimage.io import imread
 from torch.utils.data import Dataset
 
 from util import rand_crop, show, augment
-from config import o
+from config import o,w
 
 random.seed(o.random_seed)
 np.random.seed(o.random_seed)
 torch.manual_seed(o.random_seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+w.add_text('extra',"torch cudnn reproducibility off")
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
 
 
 def _denoise(path, test=False, sigma=None):
