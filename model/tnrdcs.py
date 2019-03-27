@@ -20,6 +20,31 @@ class BN(nn.BatchNorm2d):
         self.register_forward_hook(hook)
 
 
+def act(x, mean, ngammas, grad, w, mm=None):
+    if (
+        x.shape[1] == 1
+        or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size + o.filter_size * 3)
+        or (o.mem_capacity == 2)
+    ):
+        x = x.unsqueeze(2)
+        if not grad:
+            x = (((x - mean).pow(2) / ngammas / 2).exp() * w).sum(2)
+        else:
+            x = x - mean
+            x = ((x.pow(2) / ngammas / 2).exp() * x / ngammas * w).sum(2)
+    else:
+        # do on each channel
+        exit(0)
+        x, y = torch.empty_like(x), x
+        for j in range(x.shape[1]):
+            x[:, j, ...] = act(
+                y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1)
+            ).squeeze(1)
+    if mm is not None:
+        return x * mm
+    return x
+
+
 class Rbf(nn.Module):
     def __init__(self, once=False):
         super(Rbf, self).__init__()
@@ -42,36 +67,12 @@ class Rbf(nn.Module):
         # require assign after init
         self.w = None
 
-    def act(self, x, w=None):
-        if w is None:
-            w = self.w
-        if (
-            x.shape[1] == 1
-            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size + o.filter_size*3)
-            or (o.mem_capacity == 2)
-        ):
-            x = x.unsqueeze(2)
-            if not self.grad:
-                x = (((x - self.mean).pow(2) / self.ngammas / 2).exp() * w).sum(2)
-            else:
-                x = x - self.mean
-                x = ((x.pow(2) / self.ngammas / 2).exp() * x / self.ngammas * w).sum(2)
-        else:
-            # do on each channel
-            exit(0)
-            x, y = torch.empty_like(x), x
-            for j in range(x.shape[1]):
-                x[:, j, ...] = self.act(
-                    y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1)
-                ).squeeze(1)
-        return x
-
     def forward(self, x):
         if not self.grad:
             self.cache = x
-            x = self.act(x)
+            x = act(x, self.mean, self.ngammas, self.grad, self.w)
         else:
-            x = x * self.act(self.cache)
+            x = act(self.cache, self.mean, self.ngammas, self.grad, self.w, x)
         if not self.once:
             self.grad = not self.grad
         return x
@@ -106,7 +107,7 @@ class Stage(nn.Module):
             *(nn.Conv2d(o.channel, o.channel, o.filter_size) for i in range(depth - 1)),
         ]
         convt = [
-            nn.ConvTranspose2d(o.channel, 1,o.filter_size, bias=False),
+            nn.ConvTranspose2d(o.channel, 1, o.filter_size, bias=False),
             *(
                 nn.ConvTranspose2d(o.channel, o.channel, o.filter_size, bias=False)
                 for i in range(depth - 1)
@@ -160,7 +161,7 @@ class Stage(nn.Module):
         x, y, lam = inputs
         x, y = x * o.ioscale, y * o.ioscale
         xx = x
-        
+
         x.requires_grad = True
         x = checkpoint_sequential(self.m, o.stage_checkpoint, x)
         # x = self.m(x)
