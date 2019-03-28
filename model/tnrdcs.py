@@ -1,4 +1,4 @@
-# force checkpoint for patch_size>100
+# checkpoint_sequential debug
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +7,33 @@ from torch.utils.checkpoint import checkpoint, checkpoint_sequential
 
 from config import o
 from util import kaiming_normal, parameter
+
+
+def run_function(start, end, functions):
+    def forward(*inputs):
+        for j in range(start, end):
+            if functions[j] is None:
+                continue
+            if isinstance(inputs, tuple):
+                inputs = functions[j](*inputs)
+            else:
+                inputs = functions[j](inputs)
+        return inputs
+
+    return forward
+
+
+# segments is length of each segment
+def checkpoint_sequential(functions, segments, inputs):
+    start = 0
+    end = -1
+    index = 0
+    while end < len(functions) - segments[-1]:
+        end = start + (segments[index] if index < len(segments) else segments[-1])
+        index += 1
+        inputs = checkpoint(run_function(start, end, functions), inputs)
+        start = end
+    return run_function(start, len(functions), functions)(inputs)
 
 
 class BN(nn.BatchNorm2d):
@@ -18,31 +45,6 @@ class BN(nn.BatchNorm2d):
             self.g = grad(y.sum(), x, retain_graph=True, create_graph=True)[0]
 
         self.register_forward_hook(hook)
-
-
-def act(x, mean, ngammas, grad, w, mm=None):
-    if (
-        x.shape[1] == 1
-        or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size + o.filter_size * 3)
-        or (o.mem_capacity == 2)
-    ):
-        x = x.unsqueeze(2)
-        if not grad:
-            x = (((x - mean).pow(2) / ngammas / 2).exp() * w).sum(2)
-        else:
-            x = x - mean
-            x = ((x.pow(2) / ngammas / 2).exp() * x / ngammas * w).sum(2)
-    else:
-        # do on each channel
-        exit(0)
-        x, y = torch.empty_like(x), x
-        for j in range(x.shape[1]):
-            x[:, j, ...] = act(
-                y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1)
-            ).squeeze(1)
-    if mm is not None:
-        return x * mm
-    return x
 
 
 class Rbf(nn.Module):
@@ -64,15 +66,42 @@ class Rbf(nn.Module):
         )
         self.once = once
         self.grad = False
+        self.cache = None
         # require assign after init
         self.w = None
 
-    def forward(self, x):
+    def act(self, x, w=None):
+        if w is None:
+            w = self.w
+        if (
+            x.shape[1] == 1
+            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size + o.filter_size * 3)
+            or (o.mem_capacity == 2)
+        ):
+            x = x.unsqueeze(2)
+            if not self.grad:
+                x = (((x - self.mean).pow(2) / self.ngammas / 2).exp() * w).sum(2)
+            else:
+                x = x - self.mean
+                x = ((x.pow(2) / self.ngammas / 2).exp() * x / self.ngammas * w).sum(2)
+        else:
+            # do on each channel
+            exit(0)
+            x, y = torch.empty_like(x), x
+            for j in range(x.shape[1]):
+                x[:, j, ...] = act(
+                    y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1)
+                ).squeeze(1)
+        return x
+
+    def forward(self, x, y=None):
         if not self.grad:
             self.cache = x
-            x = act(x, self.mean, self.ngammas, self.grad, self.w)
+            x = self.act(x)
+            # print(0, self.cache.sum().item())
         else:
-            x = act(self.cache, self.mean, self.ngammas, self.grad, self.w, x)
+            # print(1, self.cache.sum().item())
+            x = x * self.act(self.cache)
         if not self.once:
             self.grad = not self.grad
         return x
@@ -82,7 +111,7 @@ class Stage(nn.Module):
     def __init__(self, stage=1):
         super(Stage, self).__init__()
         # make parameter
-        depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
+        self.depth = depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
         lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
         actw = [torch.randn(1, o.channel, o.penalty_num, 1, 1) for i in range(depth)]
         filter = [
@@ -131,29 +160,13 @@ class Stage(nn.Module):
         pcf = lambda i: (pad, conv[i], rbf[i])
         cc = lambda i: (convt[i], crop)
         rcc = lambda i: (rbf[i], convt[i], crop)
-        m = nn.Sequential(
-            # pad,
-            # conv[0],
-            # rbf[0],
-            # pad,
-            # conv[1],
-            # rbf[1],
-            # pad,
-            # conv[2],
-            # rbf[2],
-            # convt[2],
-            # crop,
-            # rbf[1],
-            # convt[1],
-            # crop,
-            # rbf[0],
-            # convt[0],
-            # crop,
+        m = [
+            None,
             *(j for i in range(depth) for j in pcf(i)),
             *cc(depth - 1),
-            *(j for i in reversed(range(depth - 1)) for j in rcc(i))
-        )
-        self.m = m
+            *(j for i in reversed(range(depth - 1)) for j in rcc(i)),
+        ]
+        self.a = nn.ModuleList(m)
         self.lam = lam
 
     # Bx1xHxW
@@ -163,7 +176,13 @@ class Stage(nn.Module):
         xx = x
 
         x.requires_grad = True
-        x = checkpoint_sequential(self.m, o.stage_checkpoint, x)
+        t = []
+        for i in range(self.depth * 2 - 1):
+            x = checkpoint(run_function(3 * i, 3 * i + 3, self.a), x)
+            t.append(x)
+        x = run_function(3 * i + 3, len(self.a), self.a)(x)
+
+        # x = checkpoint_sequential(self.a, [2,3], x)
         # x = self.m(x)
         # x.sum().backward()
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale

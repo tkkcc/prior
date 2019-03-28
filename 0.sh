@@ -62,22 +62,23 @@ tnrd(){
         i
         c model \"tnrd\"
         #c run \"test\"
-        # c test_set \"BSD68\"
+        #c test_set \"BSD68_03\"
         c batch_size_ 2
         # c num_workers 4
         #c rbf_checkpoint True
         #c mem_capacity 2
         #c channel 96
         # c filter_size 5
-        c patch_size 60
-        c depth 4
-        c stage_checkpoint 3
-        #c epoch 300
-        #c milestones [0,100,200]
+        c patch_size 100
+        c depth 6
+        c random_seed 1
+        #c stage_checkpoint 2
+        c epoch 250
+        c milestones [0,200]
         #c sigma 30
-        #c init_from \"load\"
-        #c load \"save/g1_tnrd6p100.tar\"
-        c save \"save/g1_tnrd6p100recs.tar\"
+        c init_from \"load\"
+        c load \"save/g1_tnrd6p100+e100.tar\"
+        c save \"save/g1_tnrd6p100++.tar\"
     }
     a
     r
