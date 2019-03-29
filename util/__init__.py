@@ -257,9 +257,21 @@ def load(m, d):
         a[k] = d.get(k)
         if a[k] is None:
             a[k] = d.get(k[7:]) if k.startswith("module.") else d.get("module." + k)
-        if a[k] is None:
+        if a[k] is None or a[k].shape!=s[k].shape:
             a[k] = s[k]
 
+    # model specific code, load 5x5 into 7x7 center
+    # f = lambda k: "filter" in k
+    # for k in a:
+    #     if not f(k):
+    #         continue
+    #     s1 = a[k].shape[-1]
+    #     s2 = d[k[7:]].shape[-1]
+    #     assert s1 % 2 == 1 and s2 % 2 == 1
+    #     if s1 > s2:
+    #         g = (s1 - s2) // 2
+    #         a[k].copy_(torch.zeros_like(a[k]))
+    #         a[k][..., g : g + s2, g : g + s2] = d[k[7:]]
     (m if hasattr(m, "load_state_dict") else m.module).load_state_dict(a)
 
 

@@ -48,7 +48,7 @@ class BN(nn.BatchNorm2d):
 
 
 class Rbf(nn.Module):
-    def __init__(self, once=False):
+    def __init__(self):
         super(Rbf, self).__init__()
         self.register_buffer(
             "mean",
@@ -64,9 +64,7 @@ class Rbf(nn.Module):
             .float()
             .pow(2),
         )
-        self.once = once
         self.grad = False
-        self.cache = None
         # require assign after init
         self.w = None
 
@@ -86,25 +84,18 @@ class Rbf(nn.Module):
                 x = ((x.pow(2) / self.ngammas / 2).exp() * x / self.ngammas * w).sum(2)
         else:
             # do on each channel
-            exit(0)
+            # exit(0)
             x, y = torch.empty_like(x), x
             for j in range(x.shape[1]):
-                x[:, j, ...] = act(
+                x[:, j, ...] = self.act(
                     y[:, j, ...].unsqueeze(1), w[:, j, ...].unsqueeze(1)
                 ).squeeze(1)
         return x
 
     def forward(self, x, y=None):
-        if not self.grad:
-            self.cache = x
-            x = self.act(x)
-            # print(0, self.cache.sum().item())
-        else:
-            # print(1, self.cache.sum().item())
-            x = x * self.act(self.cache)
-        if not self.once:
-            self.grad = not self.grad
-        return x
+        self.grad = False if y is None else True
+        x = self.act(x)
+        return x if y is None else x * y
 
 
 class Stage(nn.Module):
@@ -123,10 +114,10 @@ class Stage(nn.Module):
         ]
         kaiming_normal(filter)
         bias = [torch.randn(o.channel) for i in range(depth)]
-        lam = parameter(lam)
-        bias = parameter(bias, o.bias_scale)
-        filter = parameter(filter, o.filter_scale)
-        actw = parameter(actw, o.actw_scale)
+        self.lam = lam = parameter(lam)
+        self.bias = bias = parameter(bias, o.bias_scale)
+        self.filter = filter = parameter(filter, o.filter_scale)
+        self.actw = actw = parameter(actw, o.actw_scale)
 
         # make modules
         pad = nn.ReplicationPad2d(o.filter_size // 2)
@@ -143,19 +134,14 @@ class Stage(nn.Module):
             ),
         ]
         rbf = [Rbf() for i in range(depth)]
-        rbf[-1].once = True
-        # rbfg = [Rbf(True) for i in range(depth)]
+
         # assign parameter
         for i in range(depth):
-            # assert conv[i].weight.shape == filter[i].shape
-            # assert conv[i].bias.shape == bias[i].shape
-            # assert convt[i].weight.shape == filter[i].transpose(0,1).shape
             conv[i].weight = filter[i]
             conv[i].bias = bias[i]
             convt[i].weight = filter[i]
             rbf[i].w = actw[i]
-            # rbfg[i].w = actw[i]
-        # del rbfg[depth - 1]
+
         # make sequential
         pcf = lambda i: (pad, conv[i], rbf[i])
         cc = lambda i: (convt[i], crop)
@@ -167,24 +153,26 @@ class Stage(nn.Module):
             *(j for i in reversed(range(depth - 1)) for j in rcc(i)),
         ]
         self.a = nn.ModuleList(m)
-        self.lam = lam
 
     # Bx1xHxW
     def forward(self, *inputs):
         x, y, lam = inputs
         x, y = x * o.ioscale, y * o.ioscale
         xx = x
-
         x.requires_grad = True
         t = []
-        for i in range(self.depth * 2 - 1):
-            x = checkpoint(run_function(3 * i, 3 * i + 3, self.a), x)
+        step = 3
+        index = 0
+        for i in range(self.depth):
+            x = checkpoint(run_function(index, index + step, self.a), x)
             t.append(x)
-        x = run_function(3 * i + 3, len(self.a), self.a)(x)
-
-        # x = checkpoint_sequential(self.a, [2,3], x)
-        # x = self.m(x)
-        # x.sum().backward()
+            index += step
+        x = checkpoint(run_function(index, index + step, self.a), x)
+        index += step
+        for i in reversed(range(1, self.depth - 1)):
+            x = checkpoint(run_function(index, index + step, self.a), t[i], x)
+            index += step
+        x = run_function(index, len(self.a), self.a)(t[0], x)
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 
 

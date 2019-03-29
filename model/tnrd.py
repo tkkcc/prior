@@ -126,12 +126,12 @@ class Model(nn.Module):
         t = []
         for i in self.m:
             d[0] = self.pad(d[0])
-            if o.stage_checkpoint:
+            if o.model_checkpoint:
                 d[2].requires_grad = True
                 d[0] = checkpoint(i, *d)
             else:
                 d[0] = i(*d)
-            d[0] = self.crop(d[0])
+            d[0] = self.crop(d[0]) 
         # for mem
         t.append(d[0])
         return t
