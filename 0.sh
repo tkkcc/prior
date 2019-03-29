@@ -4,7 +4,7 @@ c(){
     sed -ri 's|^(\s*'$1'=).*,|\1'$2',|' config.py
 }
 r(){
-
+    
     python 2.py
 }
 i(){
@@ -19,6 +19,7 @@ i(){
     c milestones [90,110]
     c sigma 25
     c sigma_range False
+    c sigma_test 25
     c patch_size 60
     c join_loss False
     c stage 1
@@ -46,7 +47,10 @@ teston(){
     i
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
-    c stage_checkpoint 3
+    c stage 5
+    c depth 2
+    c sigma_test 15
+    # c stage_checkpoint 3
     # c model \"tnrdcs\"
     # c depth 6
     # c penalty_num 100
@@ -54,7 +58,7 @@ teston(){
     # c save_image True
     # c stage 1
     # c sigma 25
-    c load \"save/g1_tnrd6p100.tar\"
+    c load \"save/g5_tnrd5.tar\"
     r
 }
 tnrd(){
@@ -101,12 +105,13 @@ tnrd100(){
     a
     r
 }
-g2(){
+j2(){
     a(){
         i
         c model \"tnrdcs\"
-        #c run \"test\"
-        #c test_set \"BSD68_03\"
+        c run \"joint\"
+        # c run \"test\"
+        # c test_set \"BSD68_03\"
         #c batch_size_ 4
         c num_workers 1
         #c rbf_checkpoint True
@@ -116,14 +121,14 @@ g2(){
         c patch_size 100
         #c depth 6
         #c random_seed 1
-        #c model_checkpoint True
+        c model_checkpoint True
         c stage 2
         c epoch 60
         c milestones [0,30]
         #c sigma 30
-        c init_from \"load\"
-        c load \"save/g2_tnrd6p100e10.tar\"
-        c save \"save/g2_tnrd6p100+.tar\"
+        #c init_from \"load\"
+        c load \"save/g1_tnrd6p100+++e80.tar\"
+        c save \"save/g2_tnrd6p100.tar\"
     }
     a
     r
@@ -154,4 +159,10 @@ tnrdt(){
     a
     r
 }
+# tmp(){
+#     i
+#     c num_workers 0
+#     c load \"save/g1_tnrd5.tar\"
+#     c save \"save/tmp.tar\"
+# }
 "$@"

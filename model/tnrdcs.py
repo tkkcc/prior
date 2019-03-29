@@ -159,7 +159,8 @@ class Stage(nn.Module):
         x, y, lam = inputs
         x, y = x * o.ioscale, y * o.ioscale
         xx = x
-        x.requires_grad = True
+        if x.requires_grad==False:
+            x.requires_grad=True
         t = []
         step = 3
         index = 0

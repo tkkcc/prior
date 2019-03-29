@@ -2,25 +2,26 @@ from util import dotdict
 from tensorboardX import SummaryWriter
 from pathlib import Path
 o = dict(
-    model="tnrdcs",
-    run="greedy",
+    model="tnrd",
+    run="test",
     test_set="BSD68",
     batch_size=4,
     # internal batch size
     batch_size_=4,
-    num_workers=1,
-    epoch=60,
+    num_workers=4,
+    epoch=120,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
-    milestones=[0,30],
-    # sigma only for train
+    milestones=[90,110],
+    # sigma for train
     sigma=25,
     sigma_range=False,
-    patch_size=100,
+    sigma_test=25,
+    patch_size=60,
     join_loss=False,
     ## model
-    stage=2,
-    depth=6,
+    stage=5,
+    depth=2,
     channel=64,
     filter_size=5,
     ioscale=255,
@@ -38,11 +39,11 @@ o = dict(
     # "last": greedy train, init current(n) stage using n-1 stage
     # "load": greedy train, init current(n) stage from load, for continue train
     # other: default random init 
-    init_from="load",
+    init_from="none",
     model_checkpoint=False,
     stage_checkpoint=False,
-    load="save/g2_tnrd6p100e10.tar",
-    save="save/g2_tnrd6p100+.tar",
+    load="save/g5_tnrd5.tar",
+    save="save/g1_tnrd6p200.tar",
 )
 
 o = dotdict(o)

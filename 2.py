@@ -69,8 +69,11 @@ def train(m, p=None):
         for name, param in m.named_parameters():
             if "lam" in name:
                 w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
-        if i%10==0 and i!=0:
-            torch.save(m.module.state_dict(), o.save[:-4]+f'e{i}.tar')
+        if i % 10 == 0 and i != 0:
+            a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{o.stage-1}." + x)
+            if p:
+                a.update(p.module.state_dict())
+            torch.save(a, o.save[:-4] + f"e{i}.tar")
 
 
 # greedy train the i stage
@@ -127,12 +130,14 @@ def _test(m, p=None, benchmark=False):
         times = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
+            y = y * o.sigma / o.sigma_test
             x = y.clone().detach()
             if benchmark:
                 torch.cuda.synchronize()
                 start = time.time()
             x = p([x, y, s])[-1] if p else x
             out = m([x, y, s])[-1]
+            out = out * o.sigma_test / o.sigma
             if benchmark:
                 torch.cuda.synchronize()
                 times.append(time.time() - start)
@@ -144,8 +149,8 @@ def _test(m, p=None, benchmark=False):
                 w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
             del loss
             del out
-            del x 
-            del y 
+            del x
+            del y
         if benchmark:
             return mean(losss), mean(times)
         return mean(losss)
