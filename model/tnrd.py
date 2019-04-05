@@ -19,22 +19,14 @@ class BN(nn.BatchNorm2d):
         self.register_forward_hook(hook)
 
 
-class RBF(nn.Module):
-    def __init__(self, grad=False):
-        super(RBF, self).__init__()
+class Rbf(nn.Module):
+    def __init__(
+        self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma, grad=False
+    ):
+        super(Rbf, self).__init__()
+        self.register_buffer("mean", torch.linspace(-ps, ps, pn).view(1, 1, pn, 1, 1))
         self.register_buffer(
-            "mean",
-            torch.linspace(-o.penalty_space, o.penalty_space, o.penalty_num).view(
-                1, 1, o.penalty_num, 1, 1
-            ),
-        )
-        self.register_buffer(
-            "ngammas",
-            -torch.tensor(
-                o.penalty_gamma or (2 * o.penalty_space / (o.penalty_num - 1))
-            )
-            .float()
-            .pow(2),
+            "ngammas", -torch.tensor(pg or (2 * ps / (pn - 1))).float().pow(2)
         )
         self.grad = grad
 
@@ -84,8 +76,8 @@ class Stage(nn.Module):
 
         self.pad = nn.ReplicationPad2d(o.filter_size // 2)
         self.crop = nn.ReplicationPad2d(-(o.filter_size // 2))
-        self.rbf = RBF()
-        self.rbfg = RBF(grad=True)
+        self.rbf = Rbf()
+        self.rbfg = Rbf(grad=True)
 
         self.lam = parameter(self.lam)
         self.bias = parameter(self.bias, o.bias_scale)
@@ -131,7 +123,7 @@ class Model(nn.Module):
                 d[0] = checkpoint(i, *d)
             else:
                 d[0] = i(*d)
-            d[0] = self.crop(d[0]) 
+            d[0] = self.crop(d[0])
         # for mem
         t.append(d[0])
         return t

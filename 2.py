@@ -70,10 +70,13 @@ def train(m, p=None):
             if "lam" in name:
                 w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
         if i % 10 == 0 and i != 0:
-            a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{o.stage-1}." + x)
             if p:
+                a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{o.stage-1}." + x)
                 a.update(p.module.state_dict())
+            else:
+                a = m.module.state_dict()
             torch.save(a, o.save[:-4] + f"e{i}.tar")
+
 
 
 # greedy train the i stage
@@ -115,6 +118,16 @@ def joint(stage=1):
 
 def test(stage=1):
     m = DataParallel(Model(stage)).to(o.device)
+    # hack load stage 1 for a mistake in epoch save
+    # m.0 => m.9
+    # def first2last(x):
+    #     a = x.split(".")
+    #     return "m.1." + ".".join(a[2:]) if a[1] == "0" else None
+
+    # a = torch.load(o.load)
+    # a.update(torch.load('save/g1_tnrd6p100+e250.tar'))
+    # load(m, a)
+
     load(m, o.load)
     m.eval()
     m = _test(m, benchmark=True)

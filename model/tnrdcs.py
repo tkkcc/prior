@@ -3,10 +3,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
-from torch.utils.checkpoint import checkpoint, checkpoint_sequential
+from torch.utils.checkpoint import checkpoint
 
 from config import o
 from util import kaiming_normal, parameter
+
+
+stage_cp = lambda f, *i: f(*i) if not o.stage_checkpoint else checkpoint
+model_cp = lambda f, *i: f(*i) if not o.model_checkpoint else checkpoint
 
 
 def run_function(start, end, functions):
@@ -23,19 +27,6 @@ def run_function(start, end, functions):
     return forward
 
 
-# segments is length of each segment
-def checkpoint_sequential(functions, segments, inputs):
-    start = 0
-    end = -1
-    index = 0
-    while end < len(functions) - segments[-1]:
-        end = start + (segments[index] if index < len(segments) else segments[-1])
-        index += 1
-        inputs = checkpoint(run_function(start, end, functions), inputs)
-        start = end
-    return run_function(start, len(functions), functions)(inputs)
-
-
 class BN(nn.BatchNorm2d):
     def __init__(self, *args, **kwargs):
         super(BN, self).__init__(*args, **kwargs)
@@ -48,21 +39,11 @@ class BN(nn.BatchNorm2d):
 
 
 class Rbf(nn.Module):
-    def __init__(self):
+    def __init__(self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma):
         super(Rbf, self).__init__()
+        self.register_buffer("mean", torch.linspace(-ps, ps, pn).view(1, 1, pn, 1, 1))
         self.register_buffer(
-            "mean",
-            torch.linspace(-o.penalty_space, o.penalty_space, o.penalty_num).view(
-                1, 1, o.penalty_num, 1, 1
-            ),
-        )
-        self.register_buffer(
-            "ngammas",
-            -torch.tensor(
-                o.penalty_gamma or (2 * o.penalty_space / (o.penalty_num - 1))
-            )
-            .float()
-            .pow(2),
+            "ngammas", -torch.tensor(pg or (2 * ps / (pn - 1))).float().pow(2)
         )
         self.grad = False
         # require assign after init
@@ -102,7 +83,7 @@ class Stage(nn.Module):
     def __init__(self, stage=1):
         super(Stage, self).__init__()
         # make parameter
-        self.depth = depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
+        depth = self.depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
         lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
         actw = [torch.randn(1, o.channel, o.penalty_num, 1, 1) for i in range(depth)]
         filter = [
@@ -133,7 +114,9 @@ class Stage(nn.Module):
                 for i in range(depth - 1)
             ),
         ]
-        rbf = [Rbf() for i in range(depth)]
+        l = o.penalty_space
+        l = l if type(l) == list else [l]
+        rbf = [Rbf(l[i] if i < len(l) else l[-1]) for i in range(depth)]
 
         # assign parameter
         for i in range(depth):
@@ -159,19 +142,19 @@ class Stage(nn.Module):
         x, y, lam = inputs
         x, y = x * o.ioscale, y * o.ioscale
         xx = x
-        if x.requires_grad==False:
-            x.requires_grad=True
+        if x.requires_grad == False:
+            x.requires_grad = True
         t = []
         step = 3
         index = 0
         for i in range(self.depth):
-            x = checkpoint(run_function(index, index + step, self.a), x)
+            x = stage_cp(run_function(index, index + step, self.a), x)
             t.append(x)
             index += step
-        x = checkpoint(run_function(index, index + step, self.a), x)
+        x = stage_cp(run_function(index, index + step, self.a), x)
         index += step
         for i in reversed(range(1, self.depth - 1)):
-            x = checkpoint(run_function(index, index + step, self.a), t[i], x)
+            x = stage_cp(run_function(index, index + step, self.a), t[i], x)
             index += step
         x = run_function(index, len(self.a), self.a)(t[0], x)
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
@@ -193,11 +176,8 @@ class Model(nn.Module):
         t = []
         for i in self.m:
             d[0] = self.pad(d[0])
-            if o.model_checkpoint:
-                d[2].requires_grad = True
-                d[0] = checkpoint(i, *d)
-            else:
-                d[0] = i(*d)
+            d[2].requires_grad = True
+            d[0] = model_cp(i, *d)
             d[0] = self.crop(d[0])
         # for mem
         t.append(d[0])

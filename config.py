@@ -1,14 +1,15 @@
 from util import dotdict
 from tensorboardX import SummaryWriter
 from pathlib import Path
+
 o = dict(
-    model="tnrd",
-    run="test",
+    model="tnrdcs",
+    run="greedy",
     test_set="BSD68",
     batch_size=4,
     # internal batch size
-    batch_size_=4,
-    num_workers=4,
+    batch_size_=2,
+    num_workers=1,
     epoch=120,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
@@ -17,15 +18,15 @@ o = dict(
     sigma=25,
     sigma_range=False,
     sigma_test=25,
-    patch_size=60,
+    patch_size=100,
     join_loss=False,
     ## model
-    stage=5,
-    depth=2,
+    stage=1,
+    depth=6,
     channel=64,
     filter_size=5,
     ioscale=255,
-    penalty_space=310,
+    penalty_space=[310,50],
     penalty_num=63,
     penalty_gamma=None,
     bias_scale=1,
@@ -38,14 +39,14 @@ o = dict(
     mem_capacity=1,
     # "last": greedy train, init current(n) stage using n-1 stage
     # "load": greedy train, init current(n) stage from load, for continue train
-    # other: default random init 
+    # other: default random init
     init_from="none",
     model_checkpoint=False,
     stage_checkpoint=False,
-    load="save/g5_tnrd5.tar",
-    save="save/g1_tnrd6p200.tar",
+    load="save/g1_tnrd5.tar",
+    save="save/g1_tnrd6p100pn50.tar",
 )
 
 o = dotdict(o)
-c = o.test_set if o.run == "test" else Path(o.save).stem
+c = o.test_set + "_" + Path(o.load).stem if o.run == "test" else Path(o.save).stem
 w = SummaryWriter(comment=c)
