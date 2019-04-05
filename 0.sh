@@ -45,11 +45,11 @@ i(){
 }
 teston(){
     i
-    c model \"tnrdv\"
+    c model \"tnrd1\"
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
     # c stage 1
-    # c depth 2
+    c depth 2
     # c sigma_test 15
     # c stage_checkpoint 3
     # c model \"tnrdcs\"
@@ -62,8 +62,8 @@ teston(){
     # c load \"save/g1_tnrd6p100+++e80.tar\"
     # c load \"save/j2_tnrd6p100e50.tar\"
     # c load \"save/j2_tnrd6p100e10.tar\"
-    c load \"save/g1_tnrd6p100+e250.tar\"
-    # c load \"save/g1_tnrd5.tar\"
+    # c load \"save/g1_tnrd6p100+e250.tar\"
+    c load \"save/g1_tnrd5.tar\"
     r
 }
 tnrd(){
@@ -74,16 +74,16 @@ tnrd(){
         #c test_set \"BSD68_03\"
         c batch_size_ 2
         c num_workers 1
+        c depth 2
         #c rbf_checkpoint True
         #c mem_capacity 1
         # c channel 96
         #c filter_size 6
         #c patch_size 100
         #c penalty_num 96
-        #c depth 6
         #c random_seed 1
         # c stage_checkpoint True
-        c penalty_space [310,50]
+        # c penalty_space [310,50]
         # c epoch 90
         # c milestones [30,60]
         #c sigma 30

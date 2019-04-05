@@ -71,12 +71,13 @@ def train(m, p=None):
                 w.add_histogram(name, param.clone().detach().cpu().numpy(), i)
         if i % 10 == 0 and i != 0:
             if p:
-                a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{o.stage-1}." + x)
+                a = change_key(
+                    m.module.m[0].state_dict(), lambda x: f"m.{o.stage-1}." + x
+                )
                 a.update(p.module.state_dict())
             else:
                 a = m.module.state_dict()
             torch.save(a, o.save[:-4] + f"e{i}.tar")
-
 
 
 # greedy train the i stage
@@ -130,9 +131,16 @@ def test(stage=1):
 
     load(m, o.load)
     m.eval()
-    m = _test(m, benchmark=True)
-    w.add_text("result", str(m), 0)
-    print(m)
+    # m = _test(m, benchmark=True)
+    l = list(range(0, 20))
+    l.extend(range(25, 100, 10))
+    for i in l:
+        o.eta = i
+        r = _test(m)
+        w.add_scalar("eta", r, i)
+        print(i,r)
+    # w.add_text("result",, 0)
+    # print(m)
 
 
 def _test(m, p=None, benchmark=False):
@@ -143,14 +151,15 @@ def _test(m, p=None, benchmark=False):
         times = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
-            y = y * o.sigma / o.sigma_test
+            # w.add_image("gt", g[0], 0)
+            # y = y * o.sigma / o.sigma_test
             x = y.clone().detach()
             if benchmark:
                 torch.cuda.synchronize()
                 start = time.time()
             x = p([x, y, s])[-1] if p else x
             out = m([x, y, s])[-1]
-            out = out * o.sigma_test / o.sigma
+            # out = out * o.sigma_test / o.sigma
             if benchmark:
                 torch.cuda.synchronize()
                 times.append(time.time() - start)
