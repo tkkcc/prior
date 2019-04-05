@@ -10,22 +10,23 @@ from skimage.io import imread
 from torch.utils.data import Dataset
 
 from util import rand_crop, show, augment
-from config import o,w
+from config import o, w
 
 random.seed(o.random_seed)
 np.random.seed(o.random_seed)
 torch.manual_seed(o.random_seed)
-w.add_text('extra',"torch cudnn reproducibility off")
+w.add_text("extra", "torch cudnn reproducibility off")
 # torch.backends.cudnn.deterministic = True
 # torch.backends.cudnn.benchmark = False
 
 
 def _denoise(path, test=False, sigma=None):
+    # glob return generator, list it to reuse
+    path = list(path)
+
     class C(Dataset):
         def __init__(self):
-            d = path
-            d = Path(d) if type(d) is str else d
-            d= [i for i in d if i.is_file()]
+            d = [i for i in path if i.is_file()]
             self.d = d
 
         def __getitem__(self, i):
@@ -33,7 +34,11 @@ def _denoise(path, test=False, sigma=None):
             g = rgb2gray(g).astype(np.float32)
             g = augment(rand_crop(g, o.patch_size)) if not test else g
             g = torch.from_numpy(g).view(1, *g.shape)
-            s = sigma or o.sigma if test else o.sigma * (random.random() if o.sigma_range else 1)
+            s = (
+                sigma or o.sigma
+                if test
+                else o.sigma * (random.random() if o.sigma_range else 1)
+            )
             s = torch.tensor((s,), dtype=torch.float)
             y = g.clone().detach()
             y += torch.randn_like(y) * s / 255
