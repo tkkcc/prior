@@ -9,8 +9,8 @@ from config import o
 from util import kaiming_normal, parameter
 
 
-stage_cp = lambda f, *i: f(*i) if not o.stage_checkpoint else checkpoint
-model_cp = lambda f, *i: f(*i) if not o.model_checkpoint else checkpoint
+stage_cp = (lambda f, *i: f(*i)) if not o.stage_checkpoint else checkpoint
+model_cp = (lambda f, *i: f(*i)) if not o.model_checkpoint else checkpoint
 
 
 def run_function(start, end, functions):
