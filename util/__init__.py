@@ -257,7 +257,7 @@ def load(m, d):
         a[k] = d.get(k)
         if a[k] is None:
             a[k] = d.get(k[7:]) if k.startswith("module.") else d.get("module." + k)
-        if a[k] is None or a[k].shape!=s[k].shape:
+        if a[k] is None or a[k].shape != s[k].shape:
             a[k] = s[k]
 
     # model specific code, load 5x5 into 7x7 center
@@ -330,7 +330,13 @@ def kaiming_normal(x):
     for i in x:
         nn.init.kaiming_normal_(i)
 
-    
+
+# repeat last element of a to length l
+def repeat_last(a, l):
+    a = [a] if type(a) is not list else a
+    a.extend([a[-1]] * (l - len(a)))
+    return a
+
 
 # def checkpointor(func, flag):
 #     def f(*args):

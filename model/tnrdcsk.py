@@ -1,4 +1,4 @@
-# checkpoint_sequential debug
+# checkpoint_sequential debug, multi way
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -83,10 +83,10 @@ class Rbf(nn.Module):
 
 
 class Stage(nn.Module):
-    def __init__(self, stage=1):
+    def __init__(self, stage=1, depth=o.depth):
         super(Stage, self).__init__()
         # make parameter
-        depth = self.depth = o.depth[stage - 1]
+        depth = self.depth = depth[stage - 1]
         lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
         actw = [torch.randn(1, o.channel, o.penalty_num[i], 1, 1) for i in range(depth)]
         filter = [
@@ -117,12 +117,10 @@ class Stage(nn.Module):
                 for i in range(depth - 1)
             ),
         ]
-
         rbf = [
             Rbf(o.penalty_space[i], o.penalty_num[i], o.penalty_gamma[i])
             for i in range(depth)
         ]
-
         # assign parameter
         for i in range(depth):
             conv[i].weight = filter[i]
@@ -173,17 +171,29 @@ class Model(nn.Module):
         self.pad = nn.ReplicationPad2d(pad_width)
         self.crop = nn.ReplicationPad2d(-pad_width)
         self.m = nn.ModuleList(Stage(i) for i in stage)
+        self.m2 = nn.ModuleList([Stage(stage[0] - 1)])
+        self.k = nn.Conv2d(2, 1, 1)
 
     def forward(self, d):
         # x^t, y=x^0, s
         # with torch.enable_grad():
+        x0 = d[0]
         d[1] = self.pad(d[1])
-        t = []
+        # t = []
         for i in self.m:
             d[0] = self.pad(d[0])
             d[2].requires_grad = True
             d[0] = model_cp(i, *d)
             d[0] = self.crop(d[0])
+        r1 = d[0]
+        d[0] = x0
+        for i in self.m2:
+            d[0] = self.pad(d[0])
+            d[2].requires_grad = True
+            d[0] = model_cp(i, *d)
+            d[0] = self.crop(d[0])
+        r2 = d[0]
+        r = self.k(torch.cat((r1, r2), 1))
         # for mem
-        t.append(d[0])
-        return t
+        # t.append(d[0])
+        return [r]

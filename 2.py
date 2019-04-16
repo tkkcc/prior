@@ -17,9 +17,12 @@ from util import change_key, isnan, load, mean, normalize, npsnr, nssim, show, s
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
-w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal")
+w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal", 0)
+w.add_text("extra", "clip in rbf input", 1)
+w.add_text("extra", "4/3 ps clamp", 2)
 assert o.device == "cuda"
 assert o.batch_size_ >= torch.cuda.device_count()
+o.device_count = torch.cuda.device_count()
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
@@ -57,7 +60,7 @@ def train(m, p=None):
             loss = loss.detach().item()
             assert not isnan(loss)
             if num % (o.batch_size // o.batch_size_) == 0:
-                w.add_scalar("loss", loss, num)
+                # w.add_scalar("loss", loss, num)
                 w.add_scalar("loss/-batch", -loss / o.batch_size_, num)
                 w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
                 optimizer.step()
@@ -102,9 +105,12 @@ def greedy(stage=1):
         load(m, a)
     train(m, p)
     # concat and save
-    a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
-    if p:
-        a.update(p.module.state_dict())
+    # multi way model save hack
+    a = m.module.state_dict()
+    if "k.weight" not in a:
+        a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
+        if p:
+            a.update(p.module.state_dict())
     torch.save(a, o.save)
     return m
 
@@ -131,16 +137,16 @@ def test(stage=1):
 
     load(m, o.load)
     m.eval()
-    # m = _test(m, benchmark=True)
-    l = list(range(0, 20))
-    l.extend(range(25, 100, 10))
-    for i in l:
-        o.eta = i
-        r = _test(m)
-        w.add_scalar("eta", r, i)
-        print(i,r)
-    # w.add_text("result",, 0)
-    # print(m)
+    m = _test(m, benchmark=True)
+    # l = list(range(0, 20))
+    # l.extend(range(25, 100, 10))
+    # for i in l:
+    #     o.eta = i
+    #     r = _test(m)
+    #     w.add_scalar("eta", r, i)
+    #     print(i,r)
+    # w.add_text("result", str(m), 0)
+    print(m)
 
 
 def _test(m, p=None, benchmark=False):
