@@ -291,12 +291,25 @@ def parameter(x, scale=1):
     return nn.ParameterList([nn.Parameter(i * scale) for i in x])
 
 
-# for numpy, from ffdnet-pytorch
 # *xHxW
 def augment(x):
-    # rotate 0,90,180,270, flip up2down,left2right
+    # counterclockwise rotate 0,90,180,270, flip up2down,left2right
+    if type(x) is torch.Tensor:
+        r = random.randint(0, 3)
+        if r == 1:
+            x = x.transpose(-2, -1).flip(-2)
+        elif r == 2:
+            x = x.flip(-2).flip(-1)
+        elif r == 3:
+            x = x.transpose(-2, -1).flip(-1)
+        r = random.randint(0, 2)
+        if r == 1:
+            x = x.flip(-2)
+        elif r == 2:
+            x = x.flip(-1)
+        return x
     x = np.rot90(x, random.randint(0, 3), (-2, -1))
-    x = np.flip(x, random.randint(-2, -1)) if random.random() > 0.5 else x
+    x = np.flip(x, random.randint(-2, -1)) if random.random() > 2 / 3 else x
     return x.copy()
 
 

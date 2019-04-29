@@ -19,7 +19,7 @@ o.device = "cuda" if torch.cuda.is_available() else "cpu"
 w.add_text("config", json.dumps(o))
 w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal", 0)
 w.add_text("extra", "clip in rbf input", 1)
-w.add_text("extra", "4/3 ps clamp", 2)
+w.add_text("extra", "enable clamp", 2)
 assert o.device == "cuda"
 assert o.batch_size_ >= torch.cuda.device_count()
 o.device_count = torch.cuda.device_count()
@@ -30,7 +30,7 @@ def train(m, p=None):
         ConcatDataset((BSD400(), ILSVRC12(), WED4744())),
         o.batch_size_,
         num_workers=o.num_workers,
-        pin_memory=True,
+        pin_memory=False,
         shuffle=True,
         drop_last=True,
     )

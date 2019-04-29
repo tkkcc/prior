@@ -39,7 +39,9 @@ class BN(nn.BatchNorm2d):
 
 
 class Rbf(nn.Module):
-    def __init__(self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma):
+    def __init__(
+        self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma, operator="*"
+    ):
         super(Rbf, self).__init__()
         self.register_buffer("mean", torch.linspace(-ps, ps, pn).view(1, 1, pn, 1, 1))
         self.register_buffer(
@@ -49,6 +51,7 @@ class Rbf(nn.Module):
         # require assign after init
         self.w = None
         self.ps = ps
+        self.operator = operator
         self.b = ps * 4 / 3
 
     def act(self, x, w=None):
@@ -56,7 +59,10 @@ class Rbf(nn.Module):
             w = self.w
         if (
             x.shape[1] == 1
-            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size + o.filter_size * 3)
+            or (
+                o.mem_capacity == 1
+                and x.shape[-1] < o.patch_size + o.filter_size[0] * 3
+            )
             or (o.mem_capacity == 2)
         ):
             x = x.unsqueeze(2)
@@ -79,7 +85,7 @@ class Rbf(nn.Module):
         self.grad = False if y is None else True
         x = x.clamp(-self.b, self.b)
         x = self.act(x)
-        return x if y is None else x * y
+        return x if y is None else x * y if self.operator == "*" else x + y
 
 
 class Stage(nn.Module):
@@ -90,10 +96,10 @@ class Stage(nn.Module):
         lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
         actw = [torch.randn(1, o.channel, o.penalty_num[i], 1, 1) for i in range(depth)]
         filter = [
-            torch.randn(o.channel, 1, o.filter_size, o.filter_size),
+            torch.randn(o.channel, 1, o.filter_size[0], o.filter_size[0]),
             *(
-                torch.randn(o.channel, o.channel, o.filter_size, o.filter_size)
-                for i in range(depth - 1)
+                torch.randn(o.channel, o.channel, o.filter_size[i], o.filter_size[i])
+                for i in range(1, depth)
             ),
         ]
         kaiming_normal(filter)
@@ -104,17 +110,20 @@ class Stage(nn.Module):
         self.actw = actw = parameter(actw, o.actw_scale)
 
         # make modules
-        pad = nn.ReplicationPad2d(o.filter_size // 2)
-        crop = nn.ReplicationPad2d(-(o.filter_size // 2))
+        pad = [nn.ReplicationPad2d(o.filter_size[i] // 2) for i in range(depth)]
+        crop = [nn.ReplicationPad2d(-(o.filter_size[i] // 2)) for i in range(depth)]
         conv = [
-            nn.Conv2d(1, o.channel, o.filter_size),
-            *(nn.Conv2d(o.channel, o.channel, o.filter_size) for i in range(depth - 1)),
+            nn.Conv2d(1, o.channel, o.filter_size[0]),
+            *(
+                nn.Conv2d(o.channel, o.channel, o.filter_size[i])
+                for i in range(1, depth)
+            ),
         ]
         convt = [
-            nn.ConvTranspose2d(o.channel, 1, o.filter_size, bias=False),
+            nn.ConvTranspose2d(o.channel, 1, o.filter_size[0], bias=False),
             *(
-                nn.ConvTranspose2d(o.channel, o.channel, o.filter_size, bias=False)
-                for i in range(depth - 1)
+                nn.ConvTranspose2d(o.channel, o.channel, o.filter_size[i], bias=False)
+                for i in range(1, depth)
             ),
         ]
 
@@ -131,9 +140,9 @@ class Stage(nn.Module):
             rbf[i].w = actw[i]
 
         # make sequential
-        pcf = lambda i: (pad, conv[i], rbf[i])
-        cc = lambda i: (convt[i], crop)
-        rcc = lambda i: (rbf[i], convt[i], crop)
+        pcf = lambda i: (pad[i], conv[i], rbf[i])
+        cc = lambda i: (convt[i], crop[i])
+        rcc = lambda i: (rbf[i], convt[i], crop[i])
         m = [
             None,
             *(j for i in range(depth) for j in pcf(i)),
@@ -158,6 +167,7 @@ class Stage(nn.Module):
             index += step
         x = stage_cp(run_function(index, index + step, self.a), x)
         index += step
+        
         for i in reversed(range(1, self.depth - 1)):
             x = stage_cp(run_function(index, index + step, self.a), t[i], x)
             index += step
@@ -169,7 +179,7 @@ class Model(nn.Module):
     def __init__(self, stage=1):
         super(Model, self).__init__()
         self.stage = stage = range(1, stage + 1) if type(stage) == int else stage
-        pad_width = o.filter_size + 1
+        pad_width = o.filter_size[0] + 1
         self.pad = nn.ReplicationPad2d(pad_width)
         self.crop = nn.ReplicationPad2d(-pad_width)
         self.m = nn.ModuleList(Stage(i) for i in stage)

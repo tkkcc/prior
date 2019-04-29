@@ -45,7 +45,7 @@ i(){
 }
 teston(){
     i
-    c model \"tnrdv\"
+    c model \"tnrdcs2\"
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
     # c stage 1
@@ -59,22 +59,53 @@ teston(){
     # c save_image True
     # c stage 1
     # c sigma 25
-    c penalty_space [310,50]
+    #c penalty_space [310,50]
     # c load \"save/g1_tnrd6p100+++e80.tar\"
     # c load \"save/j2_tnrd6p100e50.tar\"
     # c load \"save/j2_tnrd6p100e10.tar\"
     # c load \"save/g1_tnrd6p100+e250.tar\"
-    c load \"save/g1_tnrd6p120ps50e30.tar\"
+    # c load \"save/g1_tnrd6p120ps50e30.tar\"
+    #c load \"save/g1_tnrd6p180.tar\"
+    c load \"save/g1_cs2.tar\"
     r
 }
-csk(){
+# one branch p1,5
+cs2(){
     a(){
         i
-        c model \"tnrdcsk\"
-        #c batch_size_ 2
+        c model \"tnrdcs2\"
+        c batch_size_ 2
         c num_workers 1
-        c stage_checkpoint True
-        c save \"save/g1_k.tar\"
+        #c stage_checkpoint True
+        c save \"save/g1_cs2.tar\"
+    }
+    a
+    r
+}
+# one branch kpk
+cs3(){
+    a(){
+        i
+        c model \"tnrdcs3\"
+        c batch_size_ 2
+        c num_workers 1
+        #c stage_checkpoint True
+        c save \"save/g1_cs3.tar\"
+    }
+    a
+    r
+}
+# c(p6',p3)
+cs4(){
+    n=5
+    a(){
+        i
+        c model \"tnrdcs4\"
+        c batch_size_ 1
+        c num_workers 1
+        c cs4 $n
+        #c stage_checkpoint True
+        c save \"save/g1_cs4_$n.tar\"
     }
     a
     r
@@ -83,7 +114,7 @@ rbf(){
     a(){
         i
         c model \"tnrdcs\"
-         c batch_size_ 1
+        c batch_size_ 1
         c num_workers 1
         # c stage_checkpoint True
         c penalty_num [80,30]
@@ -98,15 +129,15 @@ tnrd(){
         i
         c model \"tnrdcs\"
         #c batch_size 4
-        c batch_size_ 2
+        c batch_size_ 1
         c num_workers 1
-        c patch_size 100
+        #c patch_size 100
         #c stage_checkpoint True
-        c penalty_space [310,40]
+        #c penalty_space [310,40]
         #c milestones [60,110]
         #c init_from \"load\"
         #c load \"save/g1_tnrd6p100pn50.tar\"
-        c save \"save/g1_tnrd6p100ps40.tar\"
+        c save \"save/g1_tnrd6p100_clip_re.tar\"
     }
     a
     r
@@ -133,16 +164,36 @@ tnrd100(){
         i
         c model \"tnrdcs\"
         c num_workers 1
-        c batch_size 4
+        #c batch_size 4
         c batch_size_ 4
-        c patch_size 200
-        c random_seed 1
-        c epoch 90
+        c patch_size 256
+        c random_seed 2
+        c epoch 60
         c stage_checkpoint True
-        c milestones [0,65,80]
+        c milestones [0,0,50]
         c init_from \"load\"
-        c load \"save/g1_tnrd6p180.tar\"
-        c save \"save/g1_tnrd6p200.tar\"
+        c load \"save/g1_tnrd6p256e30.tar\"
+        c save \"save/g1_tnrd6p256+.tar\"
+    }
+    a
+    r
+}
+tnrd75(){
+    a(){
+        i
+        c model \"tnrdcs\"
+        #c num_workers 0
+        #c batch_size 4
+        c batch_size_ 1
+        c filter_size [7,5]
+        #c patch_size 256
+        #c random_seed 2
+        #c epoch 90
+        #c stage_checkpoint True
+        #c milestones [0,65,80]
+        #c init_from \"load\"
+        #c load \"save/g1_tnrd6p200.tar\"
+        c save \"save/g1_75.tar\"
     }
     a
     r
