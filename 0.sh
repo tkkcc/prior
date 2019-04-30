@@ -37,7 +37,6 @@ i(){
     c random_seed 0
     c mem_capacity 1
     c init_from \"none\"
-    c rbf_checkpoint False
     c model_checkpoint False
     c stage_checkpoint False
     c load \"save/g1_tnrd5.tar\"
@@ -45,9 +44,10 @@ i(){
 }
 teston(){
     i
-    c model \"tnrdcs2\"
+    c model \"tnrdcsc\"
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
+    # c save_image True
     # c stage 1
     # c depth 2
     # c sigma_test 15
@@ -65,8 +65,9 @@ teston(){
     # c load \"save/j2_tnrd6p100e10.tar\"
     # c load \"save/g1_tnrd6p100+e250.tar\"
     # c load \"save/g1_tnrd6p120ps50e30.tar\"
-    #c load \"save/g1_tnrd6p180.tar\"
-    c load \"save/g1_cs2.tar\"
+    # c load \"save/g1_tnrd6p256e30.tar\"
+    #c load \"save/g1_cs2.tar\"
+    c load \"save/g1_csc0.tar\"
     r
 }
 # one branch p1,5
@@ -89,8 +90,14 @@ cs3(){
         c model \"tnrdcs3\"
         c batch_size_ 2
         c num_workers 1
+        #c mem_capacity 0
+        c patch_size 200
+        c milestones [100,100,100,100]
+        c stage_checkpoint True
+        c init_from \"load\"
+        c load \"save/g1_cs3.tar\"
         #c stage_checkpoint True
-        c save \"save/g1_cs3.tar\"
+        c save \"save/g1_cs3+.tar\"
     }
     a
     r
@@ -106,6 +113,21 @@ cs4(){
         c cs4 $n
         #c stage_checkpoint True
         c save \"save/g1_cs4_$n.tar\"
+    }
+    a
+    r
+}
+# replace rbf with conv
+csc(){
+    a(){
+        i
+        c model \"tnrdcsc\"
+        c batch_size_ 1
+        c num_workers 0
+
+        c init_from \"load\"
+        c init \"save/g1_csc0.tar\"
+        c save \"save/tmp.tar\"
     }
     a
     r
@@ -165,12 +187,12 @@ tnrd100(){
         c model \"tnrdcs\"
         c num_workers 1
         #c batch_size 4
-        c batch_size_ 4
+        c batch_size_ 2
         c patch_size 256
         c random_seed 2
-        c epoch 60
+        c epoch 210
         c stage_checkpoint True
-        c milestones [0,0,50]
+        c milestones [30,90,150]
         c init_from \"load\"
         c load \"save/g1_tnrd6p256e30.tar\"
         c save \"save/g1_tnrd6p256+.tar\"
@@ -207,7 +229,6 @@ j2(){
         # c test_set \"BSD68_03\"
         #c batch_size_ 4
         c num_workers 1
-        #c rbf_checkpoint True
         #c mem_capacity 2
         #c channel 96
         #c filter_size 7
@@ -268,7 +289,6 @@ tnrdt(){
         # c test_set \"BSD68_03\"
         #c batch_size_ 4
         # c num_workers 4
-        #c rbf_checkpoint True
         #c mem_capacity 2
         #c channel 96
         # c filter_size 5

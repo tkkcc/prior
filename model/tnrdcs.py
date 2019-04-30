@@ -161,13 +161,12 @@ class Stage(nn.Module):
         t = []
         step = 3
         index = 0
-        for i in range(self.depth):
+        for i in range(self.depth + 1):
             x = stage_cp(run_function(index, index + step, self.a), x)
-            t.append(x)
+            if i < self.depth - 1:
+                t.append(x)
             index += step
-        x = stage_cp(run_function(index, index + step, self.a), x)
-        index += step
-        
+
         for i in reversed(range(1, self.depth - 1)):
             x = stage_cp(run_function(index, index + step, self.a), t[i], x)
             index += step

@@ -16,13 +16,13 @@ from model import Model
 from util import change_key, isnan, load, mean, normalize, npsnr, nssim, show, sleep
 
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
+o.device_count = torch.cuda.device_count()
 w.add_text("config", json.dumps(o))
 w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal", 0)
 w.add_text("extra", "clip in rbf input", 1)
 w.add_text("extra", "enable clamp", 2)
 assert o.device == "cuda"
-assert o.batch_size_ >= torch.cuda.device_count()
-o.device_count = torch.cuda.device_count()
+assert o.batch_size_ >= o.device_count
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
@@ -175,10 +175,10 @@ def _test(m, p=None, benchmark=False):
             if benchmark and o.save_image:
                 w.add_scalar("result", losss[-1], index)
                 w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
-            del loss
-            del out
-            del x
-            del y
+            # del loss
+            # del out
+            # del x
+            # del y
         if benchmark:
             return mean(losss), mean(times)
         return mean(losss)
