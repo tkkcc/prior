@@ -124,38 +124,33 @@ def m():
         if rbf is None or not hasattr(rbf, "w"):
             continue
         act = m2.module.m[0].a[ii]
+        # grad=False
+        o.lr = 1e-1
+        o.epoch = 10000
+        o.milestones = [6000, 9000]
+        optimizer = Adam(m2.parameters(), lr=o.lr)
+        scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
+        num = 0
+        # o.epoch=0
+        for i in trange(o.epoch, desc="epoch", mininterval=1):
+            num += 1
+            # x = torch.randn(4, 64, 60, 60).to("cuda")
+            # x = x * (150 if n == 0 else 15)
+            x = torch.rand(4, 64, 60, 60).to("cuda")
+            x = (x - 0.5) * (800 if n == 0 else 80)
+            with torch.no_grad():
+                o1 = rbf(x)
+            o2 = act(x)
+            loss = (o1 - o2).abs().mean()
+            loss.backward()
+            w.add_scalar("loss_" + str(n), loss.item(), num)
+            w.add_scalar("lr_" + str(n), optimizer.param_groups[0]["lr"], num)
+
+            scheduler.step()
+            optimizer.step()
+            optimizer.zero_grad()
+        torch.save(m2.module.state_dict(), "save/g1_csc2.tar")
         ps = 400 if n == 0 else 40
-        # plot fit
-        import numpy as np
-        import matplotlib.pyplot as plt
-
-        x = torch.empty(1, 64, 1, 1).to("cuda")
-        y = []
-        for i in range(-ps, ps):
-            x.fill_(i)
-            y.append(rbf(x)[0, :, 0, 0].detach().cpu().numpy())
-        y = np.transpose(y)
-        x = np.arange(-ps, ps)
-        sigma = 150 if n == 0 else 15
-        w = 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-x ** 2 / (2 * sigma ** 2))
-        deg = len(act.c1)
-        for i in range(64):
-            z = np.polyfit(x, y[i], deg, w=w)
-            # show in plt
-            p = np.poly1d(z)
-            _ = plt.plot(x, y[i], "--", x, p(x), "-")
-            plt.show()
-            # convert to conv parameter
-            for j in range(deg + 1):
-                if j == 0:
-                    act.c1[j].weight[i, 0, 0, 0] = z[~j - 1]
-                    act.c1[j].bias[i] = z[~j]
-                else:
-                    act.c1[j].weight[i, 0, 0, 0] = z[~j - 1]
-                    act.c1[j].bias[i] = 1
-                z /= z[~j - 1]
-
-        # show in tb
         x = torch.empty(1, 64, 1, 1).to("cuda")
         for i in range(-ps, ps):
             x.fill_(i)
@@ -172,7 +167,23 @@ def m():
         if n == 5:
             break
         # grad=True
-
+        optimizer = Adam(m2.parameters(), lr=o.lr)
+        scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
+        num = 0
+        for i in trange(o.epoch, desc="epoch", mininterval=1):
+            num += 1
+            x = torch.rand(4, 64, 60, 60).to("cuda")
+            x = (x - 0.5) * 800
+            with torch.no_grad():
+                o1 = rbf(x, 1)
+            o2 = act(x, 1)
+            loss = (o1 - o2).pow(2).mean()
+            loss.backward()
+            w.add_scalar("loss_" + str(n) + "_", loss.item(), num)
+            w.add_scalar("lr_" + str(n) + "_", optimizer.param_groups[0]["lr"], num)
+            scheduler.step()
+            optimizer.step()
+            optimizer.zero_grad()
         n += 1
 
     # save
