@@ -115,7 +115,7 @@ def m():
 
     reload(model)
     m2 = DataParallel(model.Model([1])).to(o.device)
-    a = torch.load("save/g1_csc2.tar")
+    a = torch.load("save/g1_csc1.tar")
 
     load(m2, a)
     n = 0
@@ -131,13 +131,13 @@ def m():
         optimizer = Adam(m2.parameters(), lr=o.lr)
         scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
         num = 0
-        # o.epoch=0
+        o.epoch=0
         for i in trange(o.epoch, desc="epoch", mininterval=1):
             num += 1
-            # x = torch.randn(4, 64, 60, 60).to("cuda")
-            # x = x * (150 if n == 0 else 15)
-            x = torch.rand(4, 64, 60, 60).to("cuda")
-            x = (x - 0.5) * (800 if n == 0 else 80)
+            x = torch.randn(4, 64, 60, 60).to("cuda")
+            x = x * (150 if n == 0 else 15)
+            # x = torch.rand(4, 64, 60, 60).to("cuda")
+            # x = (x - 0.5) * (800 if n == 0 else 80)
             with torch.no_grad():
                 o1 = rbf(x)
             o2 = act(x)
@@ -149,18 +149,18 @@ def m():
             scheduler.step()
             optimizer.step()
             optimizer.zero_grad()
-        torch.save(m2.module.state_dict(), "save/g1_csc2.tar")
+        # torch.save(m2.module.state_dict(), "save/g1_csc2.tar")
         ps = 400 if n == 0 else 40
         x = torch.empty(1, 64, 1, 1).to("cuda")
         for i in range(-ps, ps):
             x.fill_(i)
             # xx = x[0, :, 0, 0]
-            # y1 = rbf(x)[0, :, 0, 0]
+            y1 = rbf(x)[0, :, 0, 0]
             y2 = act(x)[0, :, 0, 0]
             for j in range(1):
                 s = "_" + str(n) + "_" + str(j + 1)
                 # w.add_scalar("xx" + s, xx[j], i)
-                # w.add_scalar("y1" + s, y1[j], i)
+                w.add_scalar("y1" + s, y1[j], i)
                 w.add_scalar("y2" + s, y2[j], i)
         sleep(10)
         return

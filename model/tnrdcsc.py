@@ -32,17 +32,19 @@ class Rbf(nn.Module):
         self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma, operator="*"
     ):
         super(Rbf, self).__init__()
-        c = lambda: nn.Conv2d(o.channel, o.channel, 1, groups=o.channel)
+        c = lambda: nn.Conv2d(o.channel, o.channel, 3, padding=1, groups=o.channel)
         c2 = lambda: (c(), c())
         c6 = lambda: (c() for i in range(6))
         r = nn.ReLU
         elu = nn.ELU
-        self.c1 = nn.Sequential(*c6())
-        self.c2 = nn.Sequential(*c6())
-        # self.c1 = nn.Sequential(*c2(), elu(), *c2(), elu(), *c2())
-        # self.c2 = nn.Sequential(*c2(), elu(), *c2(), elu(), *c2())
-        # self.c2 = nn.Sequential(c2(), elu(), c2(), elu(), c2())
-        # self.c2 = nn.Sequential(*(c() for i in range(2)))
+        sp = nn.Softplus
+        sm = nn.Sigmoid
+        self.c1 = nn.Sequential(
+            c(), elu(), c(), elu(), c(), sm(), c(), sm(), c(), sp(), c()
+        )
+        self.c2 = nn.Sequential(
+            c(), elu(), c(), elu(), c(), sm(), c(), sm(), c(), sp(), c()
+        )
         # for i in self.c1:
         #     kaiming_normal(i.weight)
         # for i in self.c2:

@@ -1,4 +1,4 @@
-# checkpoint_sequential debug
+# checkpoint_sequential
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -73,7 +73,6 @@ class Rbf(nn.Module):
                 x = ((x.pow(2) / self.ngammas / 2).exp() * x / self.ngammas * w).sum(2)
         else:
             # do on each channel
-            # exit(0)
             x, y = torch.empty_like(x), x
             for j in range(x.shape[1]):
                 x[:, j, ...] = self.act(
@@ -126,7 +125,6 @@ class Stage(nn.Module):
                 for i in range(1, depth)
             ),
         ]
-
         rbf = [
             Rbf(o.penalty_space[i], o.penalty_num[i], o.penalty_gamma[i])
             for i in range(depth)

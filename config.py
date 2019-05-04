@@ -3,7 +3,7 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrdcsc",
+    model="tnrdcs",
     run="test",
     test_set="BSD68_03",
     batch_size=4,
@@ -38,23 +38,21 @@ o = dict(
     # 0: for loop, 1: tensor boardcast in train for loop in test, 2:tensor
     mem_capacity=1,
     # "last": greedy train, init current(n) stage using n-1 stage
-    # "load": greedy train, init current(n) stage from load, for continue train
+    # "load": greedy train, init current(n) stage from load, for continue training
     # other: default random init
     init_from="none",
     model_checkpoint=False,
     stage_checkpoint=False,
-    load="save/g1_csc0.tar",
+    load="save/g1_tnrd6p256e30.tar",
     save="save/g1_tnrd6p200.tar",
-    cs4=5,
 )
 
 o = dotdict(o)
 c = o.test_set + "_" + Path(o.load).stem if o.run == "test" else Path(o.save).stem
 w = SummaryWriter(comment=c)
-# entend 
+# entend
 o.depth = repeat_last(o.depth, o.stage)
 o.filter_size = repeat_last(o.filter_size, max(o.depth))
 o.penalty_gamma = repeat_last(o.penalty_gamma, max(o.depth))
 o.penalty_space = repeat_last(o.penalty_space, max(o.depth))
 o.penalty_num = repeat_last(o.penalty_num, max(o.depth))
-

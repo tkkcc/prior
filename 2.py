@@ -20,13 +20,11 @@ o.device_count = torch.cuda.device_count()
 w.add_text("config", json.dumps(o))
 w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal", 0)
 w.add_text("extra", "clip in rbf input", 1)
-w.add_text("extra", "enable clamp", 2)
 assert o.device == "cuda"
 assert o.batch_size_ >= o.device_count
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
-        # BSD400(),
         ConcatDataset((BSD400(), ILSVRC12(), WED4744())),
         o.batch_size_,
         num_workers=o.num_workers,
@@ -35,7 +33,6 @@ def train(m, p=None):
         drop_last=True,
     )
     optimizer = Adam(m.parameters(), lr=o.lr)
-    # scheduler = ReduceLROnPlateau(optimizer, factor=0.3, cooldown=0, patience=10)
     scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
     num = 0
     for i in trange(o.epoch, desc="epoch", mininterval=1):
@@ -53,8 +50,6 @@ def train(m, p=None):
                     loss += npsnr(g, k, reduction="sum")
             else:
                 loss = npsnr(g, out[-1], reduction="sum")
-            # loss = nssim(g, out, reduction="sum")
-            # loss = l2(g, out) + grad_diff(g, out)
             num += 1
             loss.backward()
             loss = loss.detach().item()
@@ -83,7 +78,7 @@ def train(m, p=None):
             torch.save(a, o.save[:-4] + f"e{i}.tar")
 
 
-# greedy train the i stage
+# greedy train stage i
 def greedy(stage=1):
     p = None
     m = DataParallel(Model([stage])).to(o.device)
@@ -91,7 +86,6 @@ def greedy(stage=1):
         p = DataParallel(Model(stage - 1)).to(o.device)
         load(p, o.load)
         p.eval()
-        # p.stage = stage - 1
         if o.init_from == "last":
             a = change_key(p.module.m[-1].state_dict(), lambda x: f"m.0.{x}")
             load(m, a)
@@ -105,12 +99,9 @@ def greedy(stage=1):
         load(m, a)
     train(m, p)
     # concat and save
-    # multi way model save hack
-    a = m.module.state_dict()
-    if "k.weight" not in a:
-        a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
-        if p:
-            a.update(p.module.state_dict())
+    a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
+    if p:
+        a.update(p.module.state_dict())
     torch.save(a, o.save)
     return m
 
@@ -125,27 +116,9 @@ def joint(stage=1):
 
 def test(stage=1):
     m = DataParallel(Model(stage)).to(o.device)
-    # hack load stage 1 for a mistake in epoch save
-    # m.0 => m.9
-    # def first2last(x):
-    #     a = x.split(".")
-    #     return "m.1." + ".".join(a[2:]) if a[1] == "0" else None
-
-    # a = torch.load(o.load)
-    # a.update(torch.load('save/g1_tnrd6p100+e250.tar'))
-    # load(m, a)
-
     load(m, o.load)
     m.eval()
     m = _test(m, benchmark=True)
-    # l = list(range(0, 20))
-    # l.extend(range(25, 100, 10))
-    # for i in l:
-    #     o.eta = i
-    #     r = _test(m)
-    #     w.add_scalar("eta", r, i)
-    #     print(i,r)
-    # w.add_text("result", str(m), 0)
     print(m)
 
 
@@ -157,15 +130,12 @@ def _test(m, p=None, benchmark=False):
         times = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
-            # w.add_image("gt", g[0], 0)
-            # y = y * o.sigma / o.sigma_test
             x = y.clone().detach()
             if benchmark:
                 torch.cuda.synchronize()
                 start = time.time()
             x = p([x, y, s])[-1] if p else x
             out = m([x, y, s])[-1]
-            # out = out * o.sigma_test / o.sigma
             if benchmark:
                 torch.cuda.synchronize()
                 times.append(time.time() - start)
@@ -175,10 +145,6 @@ def _test(m, p=None, benchmark=False):
             if benchmark and o.save_image:
                 w.add_scalar("result", losss[-1], index)
                 w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
-            # del loss
-            # del out
-            # del x
-            # del y
         if benchmark:
             return mean(losss), mean(times)
         return mean(losss)
