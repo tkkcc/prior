@@ -32,23 +32,21 @@ class Rbf(nn.Module):
         self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma, operator="*"
     ):
         super(Rbf, self).__init__()
-        c = lambda: nn.Conv2d(o.channel, o.channel, 3, padding=1, groups=o.channel)
-        c2 = lambda: (c(), c())
-        c6 = lambda: (c() for i in range(6))
+        c = lambda ic=o.channel, oc=o.channel: nn.Conv2d(ic, oc, 1)
         r = nn.ReLU
         elu = nn.ELU
         sp = nn.Softplus
         sm = nn.Sigmoid
-        self.c1 = nn.Sequential(
-            c(), elu(), c(), elu(), c(), sm(), c(), sm(), c(), sp(), c()
-        )
-        self.c2 = nn.Sequential(
-            c(), elu(), c(), elu(), c(), sm(), c(), sm(), c(), sp(), c()
-        )
-        # for i in self.c1:
-        #     kaiming_normal(i.weight)
-        # for i in self.c2:
-        #     kaiming_normal(i.weight)
+        ss = nn.Softsign
+        lsm = nn.LogSigmoid
+        th = nn.Tanh
+        bn = lambda ic: nn.BatchNorm2d(ic)
+        cc = o.cc
+        csm = lambda: (c(cc, cc), sm())
+        cr = lambda: (c(cc, cc), r())
+        csp = lambda: (c(cc, cc), sp())
+        self.c1 = nn.Sequential(c(1, cc), sm(), c(cc, cc), sm(), c(cc, 1))
+        self.c2 = nn.Sequential(c(1, cc), sm(), c(cc, cc), sm(), c(cc, 1))
         self.grad = False
         # require assign after init
         self.w = None
@@ -58,7 +56,6 @@ class Rbf(nn.Module):
 
     def forward(self, x, y=None):
         self.grad = False if y is None else True
-        x = x.clamp(-self.b, self.b)
         if self.grad == False:
             x = self.c1(x)
         else:

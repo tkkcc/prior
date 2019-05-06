@@ -6,6 +6,17 @@ c(){
 r(){
     python 2.py
 }
+c3(){
+    r(){
+        python 3.py
+    }
+    c dd 1
+    c cc 4
+    r
+
+
+
+}
 i(){
     c model \"tnrd\"
     c run \"greedy\"

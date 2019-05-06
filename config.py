@@ -13,7 +13,7 @@ o = dict(
     epoch=120,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
-    milestones=[90,110],
+    milestones=[90, 110],
     # sigma for train
     sigma=25,
     sigma_range=False,
@@ -45,11 +45,15 @@ o = dict(
     stage_checkpoint=False,
     load="save/g1_tnrd6p256e30.tar",
     save="save/g1_tnrd6p200.tar",
+    cc=4,
+    dd=1,
 )
 
 o = dotdict(o)
 c = o.test_set + "_" + Path(o.load).stem if o.run == "test" else Path(o.save).stem
-w = SummaryWriter(comment=c)
+import datetime
+
+w = SummaryWriter(comment=c, log_dir="tmpr/" + str(datetime.datetime.now()) + c)
 # entend
 o.depth = repeat_last(o.depth, o.stage)
 o.filter_size = repeat_last(o.filter_size, max(o.depth))
