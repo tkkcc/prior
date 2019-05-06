@@ -53,7 +53,8 @@ o = dotdict(o)
 c = o.test_set + "_" + Path(o.load).stem if o.run == "test" else Path(o.save).stem
 import datetime
 
-w = SummaryWriter(comment=c, log_dir="tmpr/" + str(datetime.datetime.now()) + c)
+w = SummaryWriter(comment=c, log_dir="tmpr/" + str(datetime.datetime.now()))
+w2 = SummaryWriter(comment=c, log_dir="tmpr/" + str(datetime.datetime.now()) + "2")
 # entend
 o.depth = repeat_last(o.depth, o.stage)
 o.filter_size = repeat_last(o.filter_size, max(o.depth))

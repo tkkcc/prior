@@ -32,7 +32,9 @@ class Rbf(nn.Module):
         self, ps=o.penalty_space, pn=o.penalty_num, pg=o.penalty_gamma, operator="*"
     ):
         super(Rbf, self).__init__()
-        c = lambda ic=o.channel, oc=o.channel: nn.Conv2d(ic, oc, 1)
+        c = lambda ic=1, oc=1: nn.Conv2d(
+            ic * o.channel, oc * o.channel, 1, groups=o.channel
+        )
         r = nn.ReLU
         elu = nn.ELU
         sp = nn.Softplus
@@ -40,8 +42,9 @@ class Rbf(nn.Module):
         ss = nn.Softsign
         lsm = nn.LogSigmoid
         th = nn.Tanh
+        cc = 4
+
         bn = lambda ic: nn.BatchNorm2d(ic)
-        cc = o.cc
         csm = lambda: (c(cc, cc), sm())
         cr = lambda: (c(cc, cc), r())
         csp = lambda: (c(cc, cc), sp())
