@@ -3,9 +3,9 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrdcs",
+    model="tnrdcsc",
     run="test",
-    test_set="BSD68_03",
+    test_set="BSD68",
     batch_size=4,
     # internal batch size
     batch_size_=4,
@@ -13,7 +13,7 @@ o = dict(
     epoch=120,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
-    milestones=[90, 110],
+    milestones=[90,110],
     # sigma for train
     sigma=25,
     sigma_range=False,
@@ -43,18 +43,21 @@ o = dict(
     init_from="none",
     model_checkpoint=False,
     stage_checkpoint=False,
-    load="save/g1_tnrd6p256e30.tar",
+    load="save/csc0_4ch4elu.tar",
     save="save/g1_tnrd6p200.tar",
+    logdir="tmpc5",
     cc=4,
-    dd=1,
 )
 
 o = dotdict(o)
 c = o.test_set + "_" + Path(o.load).stem if o.run == "test" else Path(o.save).stem
 import datetime
 
-w = SummaryWriter(comment=c, log_dir="tmpr/" + str(datetime.datetime.now()))
-w2 = SummaryWriter(comment=c, log_dir="tmpr/" + str(datetime.datetime.now()) + "2")
+# date = str(datetime.datetime.now())
+# w = SummaryWriter(comment=c, log_dir=o.logdir + "/" + date)
+# w2 = SummaryWriter(comment=c, log_dir=o.logdir + "/" + date + "_")
+w = SummaryWriter(comment=c)
+w2 = SummaryWriter(comment=c + "_")
 # entend
 o.depth = repeat_last(o.depth, o.stage)
 o.filter_size = repeat_last(o.filter_size, max(o.depth))

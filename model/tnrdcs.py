@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.autograd import grad
 from torch.utils.checkpoint import checkpoint
 
-from config import o
+from config import o, w
 from util import kaiming_normal, parameter
 
 
@@ -164,7 +164,9 @@ class Stage(nn.Module):
             if i < self.depth - 1:
                 t.append(x)
             index += step
-
+        # view
+        for i in range(len(t)):
+            w.add_histogram("k" + str(i), t[i], 0)
         for i in reversed(range(1, self.depth - 1)):
             x = stage_cp(run_function(index, index + step, self.a), t[i], x)
             index += step

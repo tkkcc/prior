@@ -10,12 +10,17 @@ c3(){
     r(){
         python 3.py
     }
-    c dd 1
-    c cc 4
+    cc=4
+    c run \"train\"
+    c save \"save/csc0_${cc}ch4elu.tar\"
+    # c logdir \"tmpc${ch}\"
+    c cc ${cc}
     r
-
-
-
+    #for i in $(seq 0 63);do
+    #c logdir \"tmp5\"
+    #c ccc $i
+    #r
+    #done
 }
 i(){
     c model \"tnrd\"
@@ -54,10 +59,11 @@ i(){
 }
 teston(){
     i
-    c model \"tnrdcs\"
+    c model \"tnrdcsc\"
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
-    c load \"save/g1_tnrd6p256e30.tar\"
+    #c load \"save/g1_tnrd6p256+e60.tar\"
+    c load \"save/csc0_4ch4elu.tar\"
     r
 }
 

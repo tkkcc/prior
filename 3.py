@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm, trange
 
-from config import o, w,w2
+from config import o, w, w2
 from data import BSD68_03
 
 o.model = "tnrdcs"
@@ -46,6 +46,8 @@ def taker(table, bias=0):
 
 
 def m():
+    o.device = "cuda"
+    device = torch.device(o.device)
     m1 = DataParallel(Model([1])).to(o.device)
     a = torch.load("save/g1_tnrd6p256+e60.tar")
     load(m1, a)
@@ -56,8 +58,7 @@ def m():
 
     reload(model)
     m2 = DataParallel(model.Model([1])).to(o.device)
-    # a = torch.load("save/g1_csc1.tar")
-
+    # a = torch.load(o.save)
     load(m2, a)
     n = 0
     for ii in range(len(m1.module.m[0].a)):
@@ -65,14 +66,12 @@ def m():
         if type(rbf) is not model.tnrdcs.Rbf:
             continue
         act = m2.module.m[0].a[ii]
-        ps = 400 if n == 0 else 100
-        o.lr = 1e-3
-        o.epoch = 27001
-        o.milestones = [o.epoch]
-        optimizer = Adam(m2.parameters(), lr=o.lr)
-        scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
+        rbf_ = rbf
+        win = 33 if n == 0 else 5
+        ps = 400 if n == 0 else 50
 
         def smooth(extra=None):
+            rbf = rbf_
             # smooth rbf
             ys = []
             for j in range(o.channel):
@@ -82,10 +81,9 @@ def m():
                 for i in range(-ps, ps):
                     x.fill_(i)
                     y.append(rbf(x, extra)[:, j, :, :].item())
-                y = savgol_filter(y, 33, 3)
+                y = savgol_filter(y, win, 3)
                 ys.append(y)
             return taker(ys, ps)
-
 
         def fit(extra=None):
             num = 0
@@ -93,7 +91,7 @@ def m():
                 num += 1
                 # x = torch.randn(4, channel, 60, 60).to("cuda")
                 # x = x * (150 if n == 0 else 15)
-                x = torch.rand(4, o.channel, 60, 60).to("cuda")
+                x = torch.rand(4, o.channel, 60, 60, device=device)
                 x = (x - 0.5) * 2 * ps
                 x.trunc_()
                 with torch.no_grad():
@@ -101,32 +99,49 @@ def m():
                 o2 = act(x, extra)
                 loss = ((o1 - o2).pow(2)).mean()
                 loss.backward()
-                w.add_scalar("loss_" + str(n), loss.item(), num)
-                w.add_scalar("lr_" + str(n), optimizer.param_groups[0]["lr"], num)
+                suffix = str(n) + ("_" if extra is not None else "")
+                w.add_scalar("loss_" + suffix, loss.item(), num)
+                w.add_scalar("lr_" + suffix, optimizer.param_groups[0]["lr"], num)
 
                 scheduler.step()
                 optimizer.step()
                 optimizer.zero_grad()
             # if i % 3000 == 0:
             with torch.no_grad():
-                x = torch.empty(1, o.channel, 1, 1).to("cuda")
+                x = torch.empty(1, o.channel, 1, 1, device=device)
                 for j in range(-ps, ps):
                     x.fill_(j)
                     y1 = rbf(x, extra)[0, :, 0, 0]
                     y2 = act(x, extra)[0, :, 0, 0]
                     for k in range(o.channel):
                         s = str(i) + "_" + str(n) + "_" + str(k + 1)
+                        s = s + ("_" if extra is not None else "")
                         w.add_scalar("y_" + s, y1[k], j)
                         w2.add_scalar("y_" + s, y2[k], j)
+
+        # if n == 0:
+        #     n += 1
+        #     continue
+        o.lr = 5e-3
+        o.epoch = 27001
+        o.milestones = [o.epoch]
+        optimizer = Adam(m2.parameters(), lr=o.lr)
+        scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
+        # if n!=0:
         rbf = smooth()
         fit()
-        return
+
+        # break
         if n == 5:
             break
-        rbf = smooth(1)        
+        o.lr = 1e-2
+        optimizer = Adam(m2.parameters(), lr=o.lr)
+        scheduler = MultiStepLR(optimizer, milestones=o.milestones, gamma=0.1)
+        rbf = smooth(1)
         fit(1)
+        # break
         n += 1
-    torch.save(m2.module.state_dict(), "save/g1_csc0.tar")
+    torch.save(m2.module.state_dict(), o.save)
 
 
 m()

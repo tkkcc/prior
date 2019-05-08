@@ -42,14 +42,34 @@ class Rbf(nn.Module):
         ss = nn.Softsign
         lsm = nn.LogSigmoid
         th = nn.Tanh
-        cc = 4
+        cc = o.cc or 4
 
         bn = lambda ic: nn.BatchNorm2d(ic)
         csm = lambda: (c(cc, cc), sm())
         cr = lambda: (c(cc, cc), r())
         csp = lambda: (c(cc, cc), sp())
-        self.c1 = nn.Sequential(c(1, cc), sm(), c(cc, cc), sm(), c(cc, 1))
-        self.c2 = nn.Sequential(c(1, cc), sm(), c(cc, cc), sm(), c(cc, 1))
+        self.c1 = nn.Sequential(
+            c(1, cc),
+            elu(),
+            c(cc, cc),
+            elu(),
+            c(cc, cc),
+            elu(),
+            c(cc, cc),
+            elu(),
+            c(cc, 1),
+        )
+        self.c2 = nn.Sequential(
+            c(1, cc),
+            elu(),
+            c(cc, cc),
+            elu(),
+            c(cc, cc),
+            elu(),
+            c(cc, cc),
+            elu(),
+            c(cc, 1),
+        )
         self.grad = False
         # require assign after init
         self.w = None
@@ -144,6 +164,7 @@ class Stage(nn.Module):
             if i < self.depth - 1:
                 t.append(x)
             index += step
+
 
         for i in reversed(range(1, self.depth - 1)):
             x = stage_cp(run_function(index, index + step, self.a), t[i], x)
