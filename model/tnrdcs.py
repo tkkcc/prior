@@ -165,8 +165,8 @@ class Stage(nn.Module):
                 t.append(x)
             index += step
         # view
-        for i in range(len(t)):
-            w.add_histogram("k" + str(i), t[i], 0)
+        # for i in range(len(t)):
+        #     w.add_histogram("k" + str(i), t[i], 0)
         for i in reversed(range(1, self.depth - 1)):
             x = stage_cp(run_function(index, index + step, self.a), t[i], x)
             index += step

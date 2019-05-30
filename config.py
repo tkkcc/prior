@@ -3,9 +3,9 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrdcsc",
+    model="tnrdcscs",
     run="test",
-    test_set="BSD68",
+    test_set="Urban100_06",
     batch_size=4,
     # internal batch size
     batch_size_=4,
@@ -33,7 +33,7 @@ o = dict(
     filter_scale=1,
     actw_scale=1,
     ## extra
-    save_image=False,
+    save_image=True,
     random_seed=0,
     # 0: for loop, 1: tensor boardcast in train for loop in test, 2:tensor
     mem_capacity=1,
@@ -43,21 +43,19 @@ o = dict(
     init_from="none",
     model_checkpoint=False,
     stage_checkpoint=False,
-    load="save/csc0_4ch4elu.tar",
+    load="save/cscs_p256e120.tar",
     save="save/g1_tnrd6p200.tar",
-    logdir="tmpc5",
-    cc=4,
 )
 
 o = dotdict(o)
 c = o.test_set + "_" + Path(o.load).stem if o.run == "test" else Path(o.save).stem
-import datetime
+# import datetime
 
 # date = str(datetime.datetime.now())
 # w = SummaryWriter(comment=c, log_dir=o.logdir + "/" + date)
 # w2 = SummaryWriter(comment=c, log_dir=o.logdir + "/" + date + "_")
 w = SummaryWriter(comment=c)
-w2 = SummaryWriter(comment=c + "_")
+# w2 = SummaryWriter(comment=c + "_")
 # entend
 o.depth = repeat_last(o.depth, o.stage)
 o.filter_size = repeat_last(o.filter_size, max(o.depth))

@@ -61,5 +61,9 @@ ILSVRC12 = _f(Path(f"data/ILSVRC12/").glob("*"))
 # test
 Set12 = _f(sorted(Path(f"data/Set12/").glob("*")), test=True, sigma=o.sigma_test)
 BSD68 = _f(sorted(Path(f"data/BSD68/").glob("*")), test=True, sigma=o.sigma_test)
+Urban100 = _f(sorted(Path(f"data/Urban100/").glob("*")), test=True, sigma=o.sigma_test)
+Urban100_06 = _f(sorted(Path(f"data/Urban100/").glob("img_006.png")), test=True, sigma=o.sigma_test)
+Urban100_63 = _f(sorted(Path(f"data/Urban100/").glob("img_063.png")), test=True, sigma=o.sigma_test)
+
 BSD68_03 = _f(Path(f"data/BSD68/").glob("test003*"), test=True, sigma=o.sigma_test)
 BSD68_03_ = _f(Path(f"data/BSD68/").glob("test003*"))

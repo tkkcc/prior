@@ -80,8 +80,8 @@ def rfft(t):
 
 def show(x, save=None):
     import matplotlib.pyplot as plt
-
-    for i in range(x.dim() - 2):
+    dim = x.dim() if type(x) is torch.Tensor else x.ndim
+    for i in range(dim - 2):
         x = x[0]
     if type(x) is torch.Tensor:
         x = x.detach().cpu().numpy()
@@ -249,7 +249,7 @@ def load(m, d):
         if not Path(d).exists():
             print("load path not exist: " + str(d))
             return
-        d = torch.load(d)
+        d = torch.load(d, map_location='cpu')
     a = OrderedDict()
     s = m.state_dict()
     # cant use or operator

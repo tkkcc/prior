@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm, trange
 
-from config import o, w, w2
+from config import o, w
 from data import BSD68_03
 
 o.model = "tnrdcs"

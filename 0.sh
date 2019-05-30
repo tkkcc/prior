@@ -6,6 +6,7 @@ c(){
 r(){
     python 2.py
 }
+
 c3(){
     r(){
         python 3.py
@@ -59,27 +60,126 @@ i(){
 }
 teston(){
     i
-    c model \"tnrdcsc\"
+    c model \"tnrdcss\"
     c run \"test\"
     c test_set \""${1:-BSD68_03}"\"
-    #c load \"save/g1_tnrd6p256+e60.tar\"
-    c load \"save/csc0_4ch4elu.tar\"
+    c load \"save/g1_tnrd6p256+e60.tar\"
+    # c load \"save/csc0_4ch4elu.tar\"
     r
 }
-
+# test for paper
+tp(){
+    a(){
+        i
+        c model \"tnrdcs\"
+        c run \"test\"
+        c test_set \""${1:-BSD68_03}"\"
+    }
+    # 256
+    a
+    c test_set \"BSD68\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 29.230
+    a
+    c test_set \"Set12\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 30.548
+    a
+    c test_set \"Urban100\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 30.120
+    # csc
+    a
+    c model \"tnrdcscs\"
+    c test_set \"BSD68\"
+    c load \"save/cscs_p256.tar\"
+    r # 29.273
+    # sigma 15
+    a
+    c sigma_test 15
+    c test_set \"BSD68\"
+    c load \"save/s15e50.tar\"
+    r #31.720
+    a
+    c sigma_test 15
+    c test_set \"Set12\"
+    c load \"save/s15e50.tar\"
+    r #32.953
+    a
+    c sigma_test 15
+    c test_set \"Urban100\"
+    c load \"save/s15e50.tar\"
+    r #32.769
+    # sigma 50
+    a
+    c sigma_test 50
+    c test_set \"BSD68\"
+    c load \"save/s50e30.tar\"
+    r #26.262
+    a
+    c sigma_test 50
+    c test_set \"Set12\"
+    c load \"save/s50e30.tar\"
+    r #27.298
+    a
+    c sigma_test 50
+    c test_set \"Urban100\"
+    c load \"save/s50e30.tar\"
+    r #26.502
+}
 # replace rbf with conv
 csc(){
     a(){
         i
         c model \"tnrdcsc\"
+        c batch_size_ 4
+        c num_workers 1
+        c epoch 320
+        c milestones [20,120,220]
+        c init_from \"load\"
+        #c load \"save/csc0_4ch4elu.tar\"
+        c load \"save/csc_plain_inite80.tar\"
+        c save \"save/csc_plain_init+.tar\"
+        c load \"save/csce80.tar\"
+        c save \"save/csc+.tar\"
+    }
+a
+r
+}
+# replace rbf with conv and split convt and conv
+cscs(){
+    a(){
+        i
+        c model \"tnrdcscs\"
+        c batch_size_ 2
+        c num_workers 0
+        c epoch 400
+        c patch_size 256
+        c milestones [100,200,300]
+        c init_from \"load\"
+        c load \"save/csc_p256.tar\"
+        c save \"save/cscs_p256.tar\"
+    }
+a
+r
+}
+# split parameters
+css(){
+    a(){
+        i
+        c model \"tnrdcss\"
         c batch_size_ 1
         c num_workers 0
+        c patch_size 256
+        c epoch 60
+        c stage_checkpoint True
+        c milestones [10,40]
         c init_from \"load\"
-        c init \"save/g1_csc0.tar\"
-        c save \"save/tmp.tar\"
+        c load \"save/g1_tnrd6p256+e60.tar\"
+        c save \"save/css_p256.tar\"
     }
-    a
-    r
+a
+r
 }
 tnrd(){
     a(){
@@ -96,8 +196,8 @@ tnrd(){
         #c load \"save/g1_tnrd6p100pn50.tar\"
         c save \"save/g1_tnrd6p100_clip_re.tar\"
     }
-    a
-    r
+a
+r
 }
 tnrd256(){
     a(){
@@ -108,14 +208,45 @@ tnrd256(){
         c batch_size_ 2
         c patch_size 256
         c random_seed 2
-        c epoch 210
+        c epoch 120
         c stage_checkpoint True
-        c milestones [30,90,150]
+        c milestones [0,30,90]
         c init_from \"load\"
-        c load \"save/g1_tnrd6p256e30.tar\"
-        c save \"save/g1_tnrd6p256+.tar\"
+        c load \"save/g1_tnrd6p256+e90.tar\"
+        c save \"save/g1_tnrd6p256++.tar\"
     }
-    a
-    r
+a
+r
+}
+s15(){
+    s=50
+    a(){
+        i
+        c model \"tnrdcs\"
+        c num_workers 1
+        c batch_size_ 2
+        c sigma $s
+        c sigma_test $s
+        c epoch 20
+        c milestones [0]
+        c init_from \"load\"
+        c load \"save/g1_tnrd6p256++e70.tar\"
+        c save \"save/s$s.tar\"
+        # s15 31.73 target
+        # s50 26.23 target
+    }
+#. $HOME/miniconda3/etc/profile.d/conda.sh
+#conda activate
+#a
+#r
+#conda activate t
+a
+c patch_size 256
+c epoch 60
+c stage_checkpoint True
+c milestones [10,40]
+#c load \"save/s15.tar\"
+#c save \"save/s15+.tar\"
+r
 }
 "$@"

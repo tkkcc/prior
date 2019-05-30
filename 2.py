@@ -20,7 +20,7 @@ o.device_count = torch.cuda.device_count()
 w.add_text("config", json.dumps(o))
 w.add_text("extra", "training dataset add ILSVRC12, kaiming_normal", 0)
 w.add_text("extra", "clip in rbf input", 1)
-assert o.device == "cuda"
+# assert o.device == "cuda"
 assert o.batch_size_ >= o.device_count
 # m:model to train, p:pre models
 def train(m, p=None):
@@ -121,7 +121,7 @@ def test(stage=1):
     m = _test(m, benchmark=True)
     print(m)
 
-
+from imageio import imwrite
 def _test(m, p=None, benchmark=False):
     with torch.no_grad():
         d = globals()[o.test_set]
@@ -130,21 +130,37 @@ def _test(m, p=None, benchmark=False):
         times = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
+            n = '028'
+            
+            # imwrite(f'./box/noise/{index+1:03d}.png', np.clip(y[0, 0].detach().cpu().numpy(), 0, 1))
+            # imwrite(f'./box/gt/{index+1:03d}.png',np.clip(g[0, 0].detach().cpu().numpy(), 0, 1))
+            # continue
+            g = imread(f'./box/gt/{n}.png').astype(np.float32)/255
+            g = torch.from_numpy(g).view(1,1, *g.shape).to(o.device)
+            y = imread(f'./box/noise/{n}.png').astype(np.float32)/255
+            y = torch.from_numpy(y).view(1, 1, *y.shape).to(o.device)
+            # print(npsnr(g, y))
+            # return
             x = y.clone().detach()
-            if benchmark:
-                torch.cuda.synchronize()
-                start = time.time()
+            # if benchmark:
+            #     torch.cuda.synchronize()
+            #     start = time.time()
             x = p([x, y, s])[-1] if p else x
             out = m([x, y, s])[-1]
-            if benchmark:
-                torch.cuda.synchronize()
-                times.append(time.time() - start)
+            # if benchmark:
+            #     torch.cuda.synchronize()
+            #     times.append(time.time() - start)
             loss = npsnr(g, out)
             losss.append(-loss.detach().item())
             assert not isnan(losss[-1])
             if benchmark and o.save_image:
+                # from skimage.io import imsave
+                # imsave(f'./box/noise/{i+1:03d}.png', np.clip(result, 0, 1))
+                # imsave(f'./box/gt/{i+1:03d}.png', np.clip(result, 0, 1))
+                imwrite(f'./box/our/{n}.png', np.clip(out[0,0].detach().cpu().numpy(), 0, 1))
+                print(losss[-1])
                 w.add_scalar("result", losss[-1], index)
-                w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
+                # w.add_image("test", torch.cat((y[0], g[0], out[0]), -1), index)
         if benchmark:
             return mean(losss), mean(times)
         return mean(losss)
