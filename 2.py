@@ -25,7 +25,7 @@ assert o.batch_size_ >= o.device_count
 # m:model to train, p:pre models
 def train(m, p=None):
     d = DataLoader(
-        ConcatDataset((BSD400(), ILSVRC12(), WED4744())),
+        ConcatDataset([globals()[i]() for i in o.train_set]),
         o.batch_size_,
         num_workers=o.num_workers,
         pin_memory=False,
@@ -37,8 +37,11 @@ def train(m, p=None):
     num = 0
     for i in trange(o.epoch, desc="epoch", mininterval=1):
         scheduler.step()
+        if i <= o.pass_epoch:
+            continue
         for j in tqdm(d, desc="batch", mininterval=1):
             g, y, s = [x.to(o.device) for x in j]
+            # continue
             x = y.clone().detach()
             if p:
                 with torch.no_grad():
@@ -60,6 +63,7 @@ def train(m, p=None):
                 w.add_scalar("lr", optimizer.param_groups[0]["lr"], num)
                 optimizer.step()
                 optimizer.zero_grad()
+        # continue
         m.eval()
         psnr = _test(m, p)
         m.train()
@@ -97,6 +101,7 @@ def greedy(stage=1):
 
         a = change_key(torch.load(o.load), last2first)
         load(m, a)
+
     train(m, p)
     # concat and save
     a = change_key(m.module.m[0].state_dict(), lambda x: f"m.{stage-1}." + x)
@@ -117,6 +122,45 @@ def joint(stage=1):
 def test(stage=1):
     m = DataParallel(Model(stage)).to(o.device)
     load(m, o.load)
+        # load group to no group
+    # if o.g2ng:
+    if o.g2ng:
+        import model
+        d=torch.load(o.load)
+        for ii in range(len(m.module.m[0].a)):
+            g = m.module.m[0].a[ii]
+            if type(g) is not model.tnrdcscss.Rbf:
+                continue
+            # 4 conv in c1
+            for j in range(4):
+                c1w = d['m.0.a.'+str(ii)+'.c1.'+str(2*j)+'.weight']
+                c2w = d['m.0.a.'+str(ii)+'.c2.'+str(2*j)+'.weight']
+                c1b = d['m.0.a.'+str(ii)+'.c1.'+str(2*j)+'.bias']
+                c2b = d['m.0.a.'+str(ii)+'.c2.'+str(2*j)+'.bias']
+                g.c1[j*2].weight.data.fill_(0)
+                g.c2[j*2].weight.data.fill_(0)
+                ci = c1w.shape[1]
+                co = c1w.shape[0]
+                gci =  g.c1[j*2].weight.data.shape[1]
+                gco =  g.c1[j*2].weight.data.shape[0]
+                def f(index,step):
+                    if step == 0:
+                        return slice(0,1)
+                    return slice(index*step,(index+1)*step)
+                groups = o.channel
+                s1 = 0
+                s2 = 0
+                for i in range(groups):
+                    assert g.c1[j*2].weight.data[ f(i,gco//groups),  f(i,gci//groups), :, :].shape==c1w[  f(i,co//groups),0:ci, :, :].shape
+                    g.c1[j*2].weight.data[ f(i,gco//groups),  f(i,gci//groups), :, :].copy_(c1w[  f(i,co//groups), 0:ci, :, :])
+                    g.c2[j*2].weight.data[ f(i,gco//groups),  f(i,gci//groups), :, :].copy_(c2w[  f(i,co//groups), 0:ci, :, :])
+                    # g.c2[j * 2].weight.data[i * ci:(i + 1) * ci, i * ci:(i + 1) * ci,:,:].copy_(c2w[i * ci:(i + 1) * ci,:,:,:])
+                    s1+=c1w[  f(i,co//groups), 0:ci, :, :].sum()
+                    s2 += g.c1[j * 2].weight.data[f(i, gco // groups), f(i, gci // groups),:,:].sum()
+                print(s1-s2)
+                print(g.c1[j*2].weight.data.sum()-c1w.sum())
+                g.c1[j*2].bias.data.copy_(c1b)
+                g.c2[j*2].bias.data.copy_(c2b)
     m.eval()
     m = _test(m, benchmark=True)
     print(m)
@@ -130,15 +174,14 @@ def _test(m, p=None, benchmark=False):
         times = []
         for index, i in enumerate(tqdm(d, desc="test", mininterval=1)):
             g, y, s = [x.to(o.device) for x in i]
-            n = '028'
-            
+            # n = '028'
             # imwrite(f'./box/noise/{index+1:03d}.png', np.clip(y[0, 0].detach().cpu().numpy(), 0, 1))
             # imwrite(f'./box/gt/{index+1:03d}.png',np.clip(g[0, 0].detach().cpu().numpy(), 0, 1))
             # continue
-            g = imread(f'./box/gt/{n}.png').astype(np.float32)/255
-            g = torch.from_numpy(g).view(1,1, *g.shape).to(o.device)
-            y = imread(f'./box/noise/{n}.png').astype(np.float32)/255
-            y = torch.from_numpy(y).view(1, 1, *y.shape).to(o.device)
+            # g = imread(f'./box/gt/{n}.png').astype(np.float32)/255
+            # g = torch.from_numpy(g).view(1,1, *g.shape).to(o.device)
+            # y = imread(f'./box/noise/{n}.png').astype(np.float32)/255
+            # y = torch.from_numpy(y).view(1, 1, *y.shape).to(o.device)
             # print(npsnr(g, y))
             # return
             x = y.clone().detach()

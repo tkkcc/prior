@@ -90,12 +90,13 @@ class Rbf(nn.Module):
 class Stage(nn.Module):
     def __init__(self, stage=1):
         super(Stage, self).__init__()
+        ci = 3 if o.color else 1
         # make parameter
         depth = self.depth = o.depth[stage - 1]
         lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
         actw = [torch.randn(1, o.channel, o.penalty_num[i], 1, 1) for i in range(depth)]
         filter = [
-            torch.randn(o.channel, 1, o.filter_size[0], o.filter_size[0]),
+            torch.randn(o.channel, ci, o.filter_size[0], o.filter_size[0]),
             *(
                 torch.randn(o.channel, o.channel, o.filter_size[i], o.filter_size[i])
                 for i in range(1, depth)
@@ -112,14 +113,14 @@ class Stage(nn.Module):
         pad = [nn.ReplicationPad2d(o.filter_size[i] // 2) for i in range(depth)]
         crop = [nn.ReplicationPad2d(-(o.filter_size[i] // 2)) for i in range(depth)]
         conv = [
-            nn.Conv2d(1, o.channel, o.filter_size[0]),
+            nn.Conv2d(ci, o.channel, o.filter_size[0]),
             *(
                 nn.Conv2d(o.channel, o.channel, o.filter_size[i])
                 for i in range(1, depth)
             ),
         ]
         convt = [
-            nn.ConvTranspose2d(o.channel, 1, o.filter_size[0], bias=False),
+            nn.ConvTranspose2d(o.channel, ci, o.filter_size[0], bias=False),
             *(
                 nn.ConvTranspose2d(o.channel, o.channel, o.filter_size[i], bias=False)
                 for i in range(1, depth)
@@ -156,6 +157,11 @@ class Stage(nn.Module):
         xx = x
         if x.requires_grad == False:
             x.requires_grad = True
+        # forward on each channel
+        # x3 = []
+        # for i in range(xx.shape[1]):
+        #     x = xx[:, i:i+1, :, :]
+
         t = []
         step = 3
         index = 0
@@ -171,6 +177,8 @@ class Stage(nn.Module):
             x = stage_cp(run_function(index, index + step, self.a), t[i], x)
             index += step
         x = run_function(index, len(self.a), self.a)(t[0], x)
+        #     x3.append(x)
+        # x = torch.cat(x3, 1)
         return (xx - (x + self.lam.exp() * (xx - y))) / o.ioscale
 
 

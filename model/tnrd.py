@@ -6,7 +6,10 @@ from torch.utils.checkpoint import checkpoint
 
 from config import o
 from util import kaiming_normal, parameter
-
+o.filter_size = o.filter_size[0]
+o.penalty_gamma = o.penalty_gamma[0]
+o.penalty_space = o.penalty_space[0]
+o.penalty_num = o.penalty_num[0]
 
 class BN(nn.BatchNorm2d):
     def __init__(self, *args, **kwargs):
@@ -33,7 +36,7 @@ class Rbf(nn.Module):
     def act(self, x, w):
         if (
             x.shape[1] == 1
-            or (o.mem_capacity == 1 and x.shape[-1] < o.patch_size * 1.2)
+            or (o.mem_capacity == 1 and x.shape[-1] < 120)
             or (o.mem_capacity == 2)
         ):
             # use tensor boardcast
@@ -58,6 +61,7 @@ class Rbf(nn.Module):
 
 class Stage(nn.Module):
     def __init__(self, stage=1):
+
         super(Stage, self).__init__()
         self.depth = o.depth if type(o.depth) is int else o.depth[stage - 1]
         self.lam = torch.tensor(1.0 if stage == 1 else 0.1).log()
@@ -71,7 +75,7 @@ class Stage(nn.Module):
                 for i in range(self.depth - 1)
             ),
         ]
-        kaiming_normal(self.filter)
+        # kaiming_normal(self.filter)
         self.bias = [torch.randn(o.channel) for i in range(self.depth)]
 
         self.pad = nn.ReplicationPad2d(o.filter_size // 2)

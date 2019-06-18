@@ -30,10 +30,19 @@ def _denoise(path, test=False, sigma=None):
             self.d = d
 
         def __getitem__(self, i):
-            g = imread(self.d[i]) / 255
-            g = rgb2gray(g).astype(np.float32)
+            g = imread(self.d[i]).astype(np.float32) / 255
+            if o.color:
+                # skip gray 
+                while g.ndim == 2:
+                    g = imread(random.choice(self.d)).astype(np.float32) / 255
+                # remove alpha channel
+                g = g[...,:3]
+                g = torch.from_numpy(g).permute(2, 0, 1)
+                assert g.shape[0]==3
+            else:
+                g = rgb2gray(g)
+                g = torch.from_numpy(g).view(1, *g.shape)
             g = augment(rand_crop(g, o.patch_size)) if not test else g
-            g = torch.from_numpy(g).view(1, *g.shape)
             s = (
                 sigma or o.sigma
                 if test
@@ -62,8 +71,19 @@ ILSVRC12 = _f(Path(f"data/ILSVRC12/").glob("*"))
 Set12 = _f(sorted(Path(f"data/Set12/").glob("*")), test=True, sigma=o.sigma_test)
 BSD68 = _f(sorted(Path(f"data/BSD68/").glob("*")), test=True, sigma=o.sigma_test)
 Urban100 = _f(sorted(Path(f"data/Urban100/").glob("*")), test=True, sigma=o.sigma_test)
-Urban100_06 = _f(sorted(Path(f"data/Urban100/").glob("img_006.png")), test=True, sigma=o.sigma_test)
-Urban100_63 = _f(sorted(Path(f"data/Urban100/").glob("img_063.png")), test=True, sigma=o.sigma_test)
+Urban100_06 = _f(
+    sorted(Path(f"data/Urban100/").glob("img_006.png")), test=True, sigma=o.sigma_test
+)
+Urban100_63 = _f(
+    sorted(Path(f"data/Urban100/").glob("img_063.png")), test=True, sigma=o.sigma_test
+)
 
 BSD68_03 = _f(Path(f"data/BSD68/").glob("test003*"), test=True, sigma=o.sigma_test)
 BSD68_03_ = _f(Path(f"data/BSD68/").glob("test003*"))
+
+CBSD68 = _f(sorted(Path(f"data/CBSD68/").glob("*")), test=True, sigma=o.sigma_test)
+CBSD68_last = _f(
+    sorted(Path(f"data/CBSD68/").glob("*"))[-1:], test=True, sigma=o.sigma_test
+)
+Kodak24 = _f(sorted(Path(f"data/Kodak24/").glob("*")), test=True, sigma=o.sigma_test)
+McMaster = _f(sorted(Path(f"data/McMaster/").glob("*")), test=True, sigma=o.sigma_test)

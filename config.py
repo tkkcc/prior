@@ -3,22 +3,22 @@ from tensorboardX import SummaryWriter
 from pathlib import Path
 
 o = dict(
-    model="tnrdcscs",
-    run="test",
-    test_set="Urban100_06",
+    model="tnrdcs",
+    run="greedy",
+    test_set="CBSD68",
     batch_size=4,
     # internal batch size
-    batch_size_=4,
-    num_workers=4,
-    epoch=120,
+    batch_size_=2,
+    num_workers=0,
+    epoch=15,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
-    milestones=[90,110],
+    milestones=[6,12],
     # sigma for train
-    sigma=25,
+    sigma=15,
     sigma_range=False,
-    sigma_test=25,
-    patch_size=100,
+    sigma_test=15,
+    patch_size=256,
     join_loss=False,
     ## model
     stage=1,
@@ -33,18 +33,23 @@ o = dict(
     filter_scale=1,
     actw_scale=1,
     ## extra
-    save_image=True,
+    save_image=False,
     random_seed=0,
     # 0: for loop, 1: tensor boardcast in train for loop in test, 2:tensor
     mem_capacity=1,
     # "last": greedy train, init current(n) stage using n-1 stage
     # "load": greedy train, init current(n) stage from load, for continue training
     # other: default random init
-    init_from="none",
+    init_from="load",
     model_checkpoint=False,
-    stage_checkpoint=False,
-    load="save/cscs_p256e120.tar",
-    save="save/g1_tnrd6p200.tar",
+    stage_checkpoint=True,
+    load="save/color_p256.tar",
+    save="save/color_s15.tar",
+    # epoch <= -1 will pass
+    pass_epoch=-1,
+    g2ng=False,
+    color=True,
+    train_set=["BSD400","ILSVRC12","WED4744"],
 )
 
 o = dotdict(o)
