@@ -80,6 +80,7 @@ i() {
     c g2ng False
     c color False
     c train_set [\"BSD400\",\"ILSVRC12\",\"WED4744\"]
+    c num_thread 1
 }
 teston() {
     i
@@ -92,7 +93,7 @@ teston() {
 }
 
 # train & test for paper, color
-tpc(){
+trpc() {
     # pytorch>=1.0.1 is needed for urban100
     a() {
         i
@@ -102,41 +103,41 @@ tpc(){
         #c num_workers 0
         c test_set \"${1:-BSD68_03}\"
     }
-c batch_size_ 4
-c run \"greedy\"
-c test_set \"CBSD68\"
-c epoch 100
-c patch_size 80
-c milestones []
-c init_from \"none\"
-c save \"save/color_p80.tar\"
-#r
-a
-c batch_size_ 4
-c stage_checkpoint True
-c run \"greedy\"
-c test_set \"CBSD68\"
-c epoch 20
-c patch_size 256
-c milestones [12,18]
-c init_from \"load\"
-c load \"save/color_p80.tar\"
-c save \"save/color_p256.tar\"
-r
-return
-# sigma=25
-a
-c test_set \"CBSD68\"
-c load \"save/g1_tnrd6p256++.tar\"
-r # 29.230
-a
-c test_set \"Kodak24\"
-c load \"save/g1_tnrd6p256++.tar\"
-r # 30.548
-a
-c test_set \"McMaster\"
-c load \"save/g1_tnrd6p256++.tar\"
-r # 30.120
+    c batch_size_ 4
+    c run \"greedy\"
+    c test_set \"CBSD68\"
+    c epoch 100
+    c patch_size 80
+    c milestones []
+    c init_from \"none\"
+    c save \"save/color_p80.tar\"
+    #r
+    a
+    c batch_size_ 4
+    c stage_checkpoint True
+    c run \"greedy\"
+    c test_set \"CBSD68\"
+    c epoch 20
+    c patch_size 256
+    c milestones [12,18]
+    c init_from \"load\"
+    c load \"save/color_p80.tar\"
+    c save \"save/color_p256.tar\"
+    r
+    return
+    # sigma=25
+    a
+    c test_set \"CBSD68\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 29.230
+    a
+    c test_set \"Kodak24\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 30.548
+    a
+    c test_set \"McMaster\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 30.120
 }
 # test for paper
 tp() {
@@ -147,91 +148,91 @@ tp() {
         c run \"test\"
         c test_set \""${1:-BSD68_03}"\"
     }
-# sigma 50 final
-a
-c sigma_test 50
-c test_set \"BSD68\"
-c load \"save/s50+.tar\"
-r #26.273
-a
-c sigma_test 50
-c test_set \"Set12\"
-c load \"save/s50+.tar\"
-r #27.301
-a
-c sigma_test 50
-c test_set \"Urban100\"
-c load \"save/s50+.tar\"
-r #26.517996
-return
-# sigma 15 final
-a
-c sigma_test 15
-c test_set \"BSD68\"
-c load \"save/s15.tar\"
-r #31.7205
-a
-c sigma_test 15
-c test_set \"Set12\"
-c load \"save/s15.tar\"
-r #32.953
-a
-c sigma_test 15
-c test_set \"Urban100\"
-c load \"save/s15.tar\"
-r #32.769
-return
-# 256
-a
-c test_set \"BSD68\"
-c load \"save/g1_tnrd6p256++.tar\"
-r # 29.230
-a
-c test_set \"Set12\"
-c load \"save/g1_tnrd6p256++.tar\"
-r # 30.548
-a
-c test_set \"Urban100\"
-c load \"save/g1_tnrd6p256++.tar\"
-r # 30.120
-# csc
-a
-c model \"tnrdcscs\"
-c test_set \"BSD68\"
-c load \"save/cscs_p256.tar\"
-r # 29.273
-# sigma 15
-#a
-#c sigma_test 15
-#c test_set \"BSD68\"
-#c load \"save/s15e50.tar\"
-#r #31.720
-#a
-#c sigma_test 15
-#c test_set \"Set12\"
-#c load \"save/s15e50.tar\"
-#r #32.953
-#a
-#c sigma_test 15
-#c test_set \"Urban100\"
-#c load \"save/s15e50.tar\"
-#r #32.769
-# sigma 50
-#a
-#c sigma_test 50
-#c test_set \"BSD68\"
-#c load \"save/s50e30.tar\"
-#r #26.262
-#a
-#c sigma_test 50
-#c test_set \"Set12\"
-#c load \"save/s50e30.tar\"
-#r #27.298
-#a
-#c sigma_test 50
-#c test_set \"Urban100\"
-#c load \"save/s50e30.tar\"
-#r #26.502
+    # sigma 50 final
+    a
+    c sigma_test 50
+    c test_set \"BSD68\"
+    c load \"save/s50+.tar\"
+    r #26.273
+    a
+    c sigma_test 50
+    c test_set \"Set12\"
+    c load \"save/s50+.tar\"
+    r #27.301
+    a
+    c sigma_test 50
+    c test_set \"Urban100\"
+    c load \"save/s50+.tar\"
+    r #26.517996
+    return
+    # sigma 15 final
+    a
+    c sigma_test 15
+    c test_set \"BSD68\"
+    c load \"save/s15.tar\"
+    r #31.7205
+    a
+    c sigma_test 15
+    c test_set \"Set12\"
+    c load \"save/s15.tar\"
+    r #32.953
+    a
+    c sigma_test 15
+    c test_set \"Urban100\"
+    c load \"save/s15.tar\"
+    r #32.769
+    return
+    # 256
+    a
+    c test_set \"BSD68\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 29.230
+    a
+    c test_set \"Set12\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 30.548
+    a
+    c test_set \"Urban100\"
+    c load \"save/g1_tnrd6p256++.tar\"
+    r # 30.120
+    # csc
+    a
+    c model \"tnrdcscs\"
+    c test_set \"BSD68\"
+    c load \"save/cscs_p256.tar\"
+    r # 29.273
+    # sigma 15
+    #a
+    #c sigma_test 15
+    #c test_set \"BSD68\"
+    #c load \"save/s15e50.tar\"
+    #r #31.720
+    #a
+    #c sigma_test 15
+    #c test_set \"Set12\"
+    #c load \"save/s15e50.tar\"
+    #r #32.953
+    #a
+    #c sigma_test 15
+    #c test_set \"Urban100\"
+    #c load \"save/s15e50.tar\"
+    #r #32.769
+    # sigma 50
+    #a
+    #c sigma_test 50
+    #c test_set \"BSD68\"
+    #c load \"save/s50e30.tar\"
+    #r #26.262
+    #a
+    #c sigma_test 50
+    #c test_set \"Set12\"
+    #c load \"save/s50e30.tar\"
+    #r #27.298
+    #a
+    #c sigma_test 50
+    #c test_set \"Urban100\"
+    #c load \"save/s50e30.tar\"
+    #r #26.502
 }
 # replace rbf with conv
 csc() {
@@ -249,8 +250,8 @@ csc() {
         c load \"save/csce80.tar\"
         c save \"save/csc+.tar\"
     }
-a
-r
+    a
+    r
 }
 # replace rbf with conv and split convt and conv
 cscs() {
@@ -266,8 +267,8 @@ cscs() {
         c load \"save/csc_p256.tar\"
         c save \"save/cscs_p256.tar\"
     }
-a
-r
+    a
+    r
 }
 # replace rbf with conv and split convt and conv and no group
 cscss() {
@@ -284,10 +285,10 @@ cscss() {
         c load \"save/cscs_p256e140.tar\"
         c save \"save/cscss_p256.tar\"
     }
-a
-c run \"test\"
-c test_set \"BSD68_03\"
-r
+    a
+    c run \"test\"
+    c test_set \"BSD68_03\"
+    r
 }
 # split parameters
 css() {
@@ -304,8 +305,8 @@ css() {
         c load \"save/g1_tnrd6p256+e60.tar\"
         c save \"save/css_p256.tar\"
     }
-a
-r
+    a
+    r
 }
 tnrd() {
     a() {
@@ -322,8 +323,8 @@ tnrd() {
         #c load \"save/g1_tnrd6p100pn50.tar\"
         c save \"save/g1_tnrd6p100_clip_re.tar\"
     }
-a
-r
+    a
+    r
 }
 tnrd256() {
     a() {
@@ -341,8 +342,8 @@ tnrd256() {
         c load \"save/g1_tnrd6p256+e90.tar\"
         c save \"save/g1_tnrd6p256++.tar\"
     }
-a
-r
+    a
+    r
 }
 s15() {
     s=50
@@ -361,37 +362,58 @@ s15() {
         # s15 31.73 target
         # s50 26.23 target
     }
-#. $HOME/miniconda3/etc/profile.d/conda.sh
-#conda activate
-#a
-#r
-#conda activate t
-a
-c batch_size_ 1
-c patch_size 256
-c epoch 60
-c stage_checkpoint True
-c milestones [10,40]
-c load \"save/s50e40.tar\"
-c pass_epoch 40
-c save \"save/s$s+.tar\"
-r
+    #. $HOME/miniconda3/etc/profile.d/conda.sh
+    #conda activate
+    #a
+    #r
+    #conda activate t
+    a
+    c batch_size_ 1
+    c patch_size 256
+    c epoch 60
+    c stage_checkpoint True
+    c milestones [10,40]
+    c load \"save/s50e40.tar\"
+    c pass_epoch 40
+    c save \"save/s$s+.tar\"
+    r
 }
-# color
-color_s15() {
-    s=15
+# gray s35 75
+grays35() {
+    s=${1:-35}
     a() {
         i
         c model \"tnrdcs\"
         c num_workers 0
-        c batch_size_ 2
+        c batch_size_ 1
         c sigma $s
         c sigma_test $s
-        c epoch 15
-        c milestones [6,12]
+        c epoch 30
+        c milestones [15,25]
+        c init_from \"load\"
+        c load \"save/g1_tnrd6p256++e70.tar\"
+        c save \"save/s${s}.tar\"
+        c stage_checkpoint True
+        c patch_size 256
+    }
+    a
+    r
+}
+# color s15 50 75
+color() {
+    s=$1
+    a() {
+        i
+        c model \"tnrdcs\"
+        c num_workers 0
+        c batch_size_ 1
+        c sigma $s
+        c sigma_test $s
+        c epoch 30
+        c milestones [15,25]
         c init_from \"load\"
         c load \"save/color_p256.tar\"
-        c save \"save/color_s$s.tar\"
+        c save \"save/color_s${s}_1525.tar\"
         c stage_checkpoint True
         c patch_size 256
         c color True
@@ -399,5 +421,77 @@ color_s15() {
     }
     a
     r
+}
+# gray s25
+gray() {
+    a() {
+        i
+        c model \"tnrdcs\"
+        c run \"greedy\"
+        c num_workers 0
+        c test_set \"BSD68\"
+    }
+    c batch_size_ 2
+    c epoch 100
+    c patch_size 80
+    c milestones []
+    c init_from \"none\"
+    c save \"save/gray_p80.tar\"
+    r
+    a
+    c batch_size_ 1
+    c stage_checkpoint True
+    c epoch 20
+    c patch_size 256
+    c milestones [12,18]
+    c init_from \"load\"
+    c load \"save/gray_p80.tar\"
+    c save \"save/gray_p256.tar\"
+    r
+}
+# gray s25 extra
+graye() {
+    a() {
+        i
+        c model \"tnrdcs\"
+        c run \"greedy\"
+        c num_workers 0
+        c test_set \"BSD68\"
+    }
+    a
+    c batch_size_ 1
+    c stage_checkpoint True
+    c epoch 30
+    c patch_size 256
+    c milestones [5,25]
+    c init_from \"load\"
+    c load \"save/gray_p80.tar\"
+    c save \"save/gray_p256_0525.tar\"
+    r
+}
+# test for paper, color
+tpc() {
+    a=(CBSD68 Kodak24 McMaster)
+    b=(15 25 35 50 75)
+    for i in ${a[@]}; do
+        for j in ${b[@]}; do
+            if [ $j == 25 ]; then
+                suffix=p256
+            else
+                suffix=s${j}_1525
+            fi
+            file=save/color_$suffix.tar
+            [[ ! -e $file ]] && exit 1
+            echo $i $j $suffix
+            i
+            c model \"tnrdcs\"
+            c run \"test\"
+            c color True
+            c sigma_test $j
+            c test_set \"$i\"
+            c load \"$file\"
+            r
+        done
+    done
 }
 "$@"

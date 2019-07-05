@@ -14,7 +14,7 @@ from config import o, w
 from data import *
 from model import Model
 from util import change_key, isnan, load, mean, normalize, npsnr, nssim, show, sleep
-
+torch.set_num_threads(o.num_thread)
 o.device = "cuda" if torch.cuda.is_available() else "cpu"
 o.device_count = torch.cuda.device_count()
 w.add_text("config", json.dumps(o))

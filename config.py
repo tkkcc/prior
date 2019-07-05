@@ -5,19 +5,19 @@ from pathlib import Path
 o = dict(
     model="tnrdcs",
     run="greedy",
-    test_set="CBSD68",
+    test_set="BSD68",
     batch_size=4,
     # internal batch size
-    batch_size_=2,
+    batch_size_=1,
     num_workers=0,
-    epoch=15,
+    epoch=30,
     lr=1e-3,
     # lr*=0.1 when epoch in milestones, start from 0
-    milestones=[6,12],
+    milestones=[15,25],
     # sigma for train
-    sigma=15,
+    sigma=75,
     sigma_range=False,
-    sigma_test=15,
+    sigma_test=75,
     patch_size=256,
     join_loss=False,
     ## model
@@ -43,13 +43,14 @@ o = dict(
     init_from="load",
     model_checkpoint=False,
     stage_checkpoint=True,
-    load="save/color_p256.tar",
-    save="save/color_s15.tar",
+    load="save/g1_tnrd6p256++e70.tar",
+    save="save/s75.tar",
     # epoch <= -1 will pass
     pass_epoch=-1,
     g2ng=False,
-    color=True,
+    color=False,
     train_set=["BSD400","ILSVRC12","WED4744"],
+    num_thread=1,
 )
 
 o = dotdict(o)
